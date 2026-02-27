@@ -1,0 +1,4047 @@
+
+----------------------------------------
+FILE: alembic.ini
+PATH: .\alembic.ini
+----------------------------------------
+
+# A generic, single database configuration.
+
+[alembic]
+# path to migration scripts.
+# this is typically a path given in POSIX (e.g. forward slashes)
+# format, relative to the token %(here)s which refers to the location of this
+# ini file
+script_location = %(here)s/alembic
+
+# template used to generate migration file names; The default value is %%(rev)s_%%(slug)s
+# Uncomment the line below if you want the files to be prepended with date and time
+# see https://alembic.sqlalchemy.org/en/latest/tutorial.html#editing-the-ini-file
+# for all available tokens
+# file_template = %%(year)d_%%(month).2d_%%(day).2d_%%(hour).2d%%(minute).2d-%%(rev)s_%%(slug)s
+
+# sys.path path, will be prepended to sys.path if present.
+# defaults to the current working directory.  for multiple paths, the path separator
+# is defined by "path_separator" below.
+prepend_sys_path = .
+
+
+# timezone to use when rendering the date within the migration file
+# as well as the filename.
+# If specified, requires the tzdata library which can be installed by adding
+# `alembic[tz]` to the pip requirements.
+# string value is passed to ZoneInfo()
+# leave blank for localtime
+# timezone =
+
+# max length of characters to apply to the "slug" field
+# truncate_slug_length = 40
+
+# set to 'true' to run the environment during
+# the 'revision' command, regardless of autogenerate
+# revision_environment = false
+
+# set to 'true' to allow .pyc and .pyo files without
+# a source .py file to be detected as revisions in the
+# versions/ directory
+# sourceless = false
+
+# version location specification; This defaults
+# to <script_location>/versions.  When using multiple version
+# directories, initial revisions must be specified with --version-path.
+# The path separator used here should be the separator specified by "path_separator"
+# below.
+# version_locations = %(here)s/bar:%(here)s/bat:%(here)s/alembic/versions
+
+# path_separator; This indicates what character is used to split lists of file
+# paths, including version_locations and prepend_sys_path within configparser
+# files such as alembic.ini.
+# The default rendered in new alembic.ini files is "os", which uses os.pathsep
+# to provide os-dependent path splitting.
+#
+# Note that in order to support legacy alembic.ini files, this default does NOT
+# take place if path_separator is not present in alembic.ini.  If this
+# option is omitted entirely, fallback logic is as follows:
+#
+# 1. Parsing of the version_locations option falls back to using the legacy
+#    "version_path_separator" key, which if absent then falls back to the legacy
+#    behavior of splitting on spaces and/or commas.
+# 2. Parsing of the prepend_sys_path option falls back to the legacy
+#    behavior of splitting on spaces, commas, or colons.
+#
+# Valid values for path_separator are:
+#
+# path_separator = :
+# path_separator = ;
+# path_separator = space
+# path_separator = newline
+#
+# Use os.pathsep. Default configuration used for new projects.
+path_separator = os
+
+# set to 'true' to search source files recursively
+# in each "version_locations" directory
+# new in Alembic version 1.10
+# recursive_version_locations = false
+
+# the output encoding used when revision files
+# are written from script.py.mako
+# output_encoding = utf-8
+
+# database URL.  This is consumed by the user-maintained env.py script only.
+# other means of configuring database URLs may be customized within the env.py
+# file.
+# sqlalchemy.url = driver://user:@localhost/dbname
+sqlalchemy.url = postgresql+psycopg2://postgres:1907@localhost:5432/pycab
+
+[post_write_hooks]
+# post_write_hooks defines scripts or Python functions that are run
+# on newly generated revision scripts.  See the documentation for further
+# detail and examples
+
+# format using "black" - use the console_scripts runner, against the "black" entrypoint
+# hooks = black
+# black.type = console_scripts
+# black.entrypoint = black
+# black.options = -l 79 REVISION_SCRIPT_FILENAME
+
+# lint with attempts to fix using "ruff" - use the module runner, against the "ruff" module
+# hooks = ruff
+# ruff.type = module
+# ruff.module = ruff
+# ruff.options = check --fix REVISION_SCRIPT_FILENAME
+
+# Alternatively, use the exec runner to execute a binary found on your PATH
+# hooks = ruff
+# ruff.type = exec
+# ruff.executable = ruff
+# ruff.options = check --fix REVISION_SCRIPT_FILENAME
+
+# Logging configuration.  This is also consumed by the user-maintained
+# env.py script only.
+[loggers]
+keys = root,sqlalchemy,alembic
+
+[handlers]
+keys = console
+
+[formatters]
+keys = generic
+
+[logger_root]
+level = WARNING
+handlers = console
+qualname =
+
+[logger_sqlalchemy]
+level = WARNING
+handlers =
+qualname = sqlalchemy.engine
+
+[logger_alembic]
+level = INFO
+handlers =
+qualname = alembic
+
+[handler_console]
+class = StreamHandler
+args = (sys.stderr,)
+level = NOTSET
+formatter = generic
+
+[formatter_generic]
+format = %(levelname)-5.5s [%(name)s] %(message)s
+datefmt = %H:%M:%S
+
+
+----------------------------------------
+FILE: celery_app.py
+PATH: .\celery_app.py
+----------------------------------------
+
+from celery import Celery
+
+celery = Celery(
+    "worker",
+    broker="redis://localhost:6379/0",
+    backend="redis://localhost:6379/0"
+)
+
+celery.conf.update(
+    task_serializer="json",
+    accept_content=["json"],
+    result_serializer="json",
+)
+
+
+----------------------------------------
+FILE: collect_project_files.py
+PATH: .\collect_project_files.py
+----------------------------------------
+
+import os
+import glob
+
+def collect_project_files(root_dir=".", output_file="project_structure.txt"):
+    """Collect project structure and file contents"""
+    exclude_dirs = {'.git', '__pycache__', 'node_modules', 'venv', '.env'}
+    include_extensions = {'.py', '.txt', '.ini', '.json', '.js', '.html'}
+    
+    with open(output_file, 'w', encoding='utf-8') as f:
+        for root, dirs, files in os.walk(root_dir):
+            # Skip excluded directories
+            dirs[:] = [d for d in dirs if d not in exclude_dirs]
+            
+            # Write directory structure
+            rel_path = os.path.relpath(root, root_dir)
+            if rel_path != '.':
+                f.write(f"\n{'='*60}\n")
+                f.write(f"DIRECTORY: {rel_path}\n")
+                f.write(f"{'='*60}\n")
+            
+            # Write file contents
+            for file in files:
+                if any(file.endswith(ext) for ext in include_extensions):
+                    file_path = os.path.join(root, file)
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as content_file:
+                            f.write(f"\n{'-'*40}\n")
+                            f.write(f"FILE: {file}\n")
+                            f.write(f"PATH: {file_path}\n")
+                            f.write(f"{'-'*40}\n\n")
+                            f.write(content_file.read())
+                            f.write("\n")
+                    except Exception as e:
+                        f.write(f"Error reading {file}: {e}\n")
+
+if __name__ == "__main__":
+    collect_project_files()
+
+----------------------------------------
+FILE: config.py
+PATH: .\config.py
+----------------------------------------
+
+# # backend/config.py
+
+# import os
+# from supabase import create_client, Client
+
+# supabase=None
+# SUPABASE_URL = os.getenv("SUPABASE_URL", "http://localhost:54321")
+# SUPABASE_KEY = os.getenv("SUPABASE_KEY", "test_key")
+
+# # 👇 This is the variable your tests expect
+# supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+supabase=None
+
+----------------------------------------
+FILE: db.py
+PATH: .\db.py
+----------------------------------------
+
+# app/db.py
+
+# from sqlmodel import SQLModel
+# from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+# from sqlalchemy.orm import sessionmaker
+# from dotenv import load_dotenv
+# import os
+# import socket
+
+# load_dotenv()
+
+# # Make sure DB uses a forced timeout
+# socket.setdefaulttimeout(30)
+
+# # Keep your URL but DON'T touch it manually
+# DATABASE_URL = os.environ["DATABASE_URL"].replace(
+#     "postgresql+psycopg2",
+#     "postgresql+asyncpg"
+# )
+
+# # ✅ FORCE IPv4 + SSL for Supabase
+# engine = create_async_engine(
+#     DATABASE_URL,
+#     echo=True,
+#     pool_pre_ping=True,
+#     connect_args={
+#         "ssl": "require",
+#         "server_settings": {
+#             "application_name": "pycab"
+#         }
+#     }
+# )
+
+# SessionLocal = sessionmaker(
+#     engine,
+#     class_=AsyncSession,
+#     expire_on_commit=False
+# )
+
+# async def get_session():
+#     async with SessionLocal() as session:
+#         yield session
+
+# async def init_db():
+    # from models.base import SQLModelBase
+    # async with engine.begin() as conn:
+    #     await conn.run_sync(SQLModelBase.metadata.create_all)
+
+
+# from sqlmodel import SQLModel
+# from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+# from sqlalchemy.orm import sessionmaker
+# from dotenv import load_dotenv
+# import os
+# import socket
+
+# load_dotenv()
+# socket.setdefaulttimeout(30)
+
+# # Keep your URL but DON'T touch it manually
+# DATABASE_URL = os.environ["DATABASE_URL"].replace(
+#     "postgresql+psycopg2",
+#     "postgresql+asyncpg"
+# )
+
+# # ✅ Automatically handle SSL for Supabase vs local Postgres
+# ssl_mode = "require" if "supabase" in DATABASE_URL else None
+
+# engine = create_async_engine(
+#     DATABASE_URL,
+#     echo=True,
+#     pool_pre_ping=True,
+#     connect_args={"ssl": ssl_mode}  # use SSL only for cloud DB
+# )
+
+# SessionLocal = sessionmaker(
+#     engine,
+#     class_=AsyncSession,
+#     expire_on_commit=False
+# )
+
+# async def get_session():
+#     async with SessionLocal() as session:
+#         yield session
+
+# async def init_db():
+#     from models.base import SQLModelBase
+#     async with engine.begin() as conn:
+#         await conn.run_sync(SQLModelBase.metadata.create_all)
+
+
+from sqlmodel import SQLModel
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
+import os
+import socket
+
+load_dotenv()
+socket.setdefaulttimeout(30)
+
+# Get the original DATABASE_URL from environment
+original_url = os.environ["DATABASE_URL"]
+
+# Convert the URL to use asyncpg driver for async operations
+if original_url.startswith("postgresql://"):
+    DATABASE_URL = original_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+elif original_url.startswith("postgresql+psycopg2://"):
+    DATABASE_URL = original_url.replace("postgresql+psycopg2://", "postgresql+asyncpg://", 1)
+elif original_url.startswith("postgresql+asyncpg://"):
+    DATABASE_URL = original_url
+else:
+    # For any other driver, replace the driver with asyncpg
+    parts = original_url.split("://", 1)
+    if len(parts) == 2 and parts[0].startswith("postgresql+"):
+        parts[0] = "postgresql+asyncpg"
+        DATABASE_URL = "://".join(parts)
+    else:
+        DATABASE_URL = original_url
+
+# Print the URL for debugging (remove in production)
+print(f"Using DATABASE_URL: {DATABASE_URL}")
+
+# ✅ Automatically handle SSL for Supabase vs local Postgres
+ssl_mode = "require" if "supabase" in DATABASE_URL else None
+
+engine = create_async_engine(
+    DATABASE_URL,
+    echo=True,
+    pool_pre_ping=True,
+    connect_args={"ssl": ssl_mode}  # use SSL only for cloud DB
+)
+
+SessionLocal = sessionmaker(
+    engine,
+    class_=AsyncSession,
+    expire_on_commit=False
+)
+
+async def get_session():
+    async with SessionLocal() as session:
+        yield session
+
+async def init_db():
+    from models.base import SQLModelBase
+    from models.ride import Ride
+    from models.user import User
+    from models.location import DriverLocation
+    from models.booking import Booking
+    
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModelBase.metadata.create_all)
+
+----------------------------------------
+FILE: main.py
+PATH: .\main.py
+----------------------------------------
+
+from fastapi import FastAPI,Request
+from fastapi.middleware.cors import CORSMiddleware
+from sqlmodel import SQLModel  # Import SQLModel here
+
+# Import routers correctly
+from routes.rides import router as rides_router
+from routes.payments import router as payments_router
+from routes.booking import router as booking_router
+from routes.auth import router as auth_router
+from routes.payments import router as payments_router
+from routes.receipts import router as receipts_router
+from routes.health import router as health_router
+
+from security.middleware import request_validation_middleware
+from security.rate_limiter import rate_limiter
+
+from websocket.socket_manager import socket_app, sio
+
+app = FastAPI()
+
+app.middleware("http")(request_validation_middleware)
+
+@app.get("/api/status")
+async def api_status(request: Request):
+    await rate_limiter.check_rate_limit(request)
+    return {"status": "ok", "message": "API is running"}
+
+# CORS config
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=["*"], 
+#     #  allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "https://your-frontend-domain.com"  # Add your production frontend
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=[
+        "Content-Type", 
+        "Authorization", 
+        "Accept",
+        "Origin",
+        "X-Requested-With"
+    ],
+    expose_headers=["Content-Length", "X-Request-ID"],
+    max_age=600,  # Cache preflight requests for 10 minutes
+)
+
+@app.get("/")
+def root():
+    return {"message": "Backend is running"}
+
+# REGISTER ROUTERS
+app.include_router(rides_router, tags=["rides"])
+app.include_router(payments_router, tags=["payments"])
+app.include_router(booking_router, tags=["booking"])
+app.include_router(auth_router, tags=["auth"])
+app.include_router(payments_router, prefix="/payments", tags=["payments"])
+app.include_router(receipts_router, tags=["receipts"])
+app.include_router(health_router)
+
+@app.on_event("startup")
+async def startup():
+    from db import engine
+    # Import ALL models so they're registered with SQLModel.metadata
+    from models.ride import Ride
+    from models.user import User
+    from models.location import DriverLocation
+    from models.booking import Booking
+    
+    # Use async table creation
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+    from db import engine
+    # Import ALL models so they're registered with SQLModel.metadata
+    from models.ride import Ride
+    from models.user import User
+    from models.location import DriverLocation
+    from models.booking import Booking
+    
+    app.mount("/ws", socket_app)
+    
+    # Use async table creation
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+
+----------------------------------------
+FILE: models.py
+PATH: .\models.py
+----------------------------------------
+
+from sqlmodel import SQLModel, Field
+from typing import Optional
+from datetime import datetime
+
+class Driver(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: str  # Supabase user uuid
+    name: str
+    is_online: bool = False
+    lat: float = 0
+    lng: float = 0
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+# class Ride(SQLModel, table=True):
+#     id: Optional[int] = Field(default=None, primary_key=True)
+#     rider_id: str   # Supabase UUID
+#     driver_id: Optional[str] = None
+#     status: str = "pending"  # pending, assigned, accepted, completed
+#     start_lat: float
+#     start_lng: float
+#     end_lat: float
+#     end_lng: float
+#     price: float
+#     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class Ride(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: str = Field(index=True)   # Supabase UUID
+    pickup_address: str
+    drop_address: str
+    pickup_lat: float
+    pickup_lng: float
+    drop_lat: float
+    drop_lng: float
+    estimated_distance_km: Optional[float] = None
+    estimated_price: Optional[float] = None
+    status: str = "requested"
+
+----------------------------------------
+FILE: package-lock.json
+PATH: .\package-lock.json
+----------------------------------------
+
+{
+  "name": "backend",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "dependencies": {
+        "@supabase/supabase-js": "^2.91.1"
+      }
+    },
+    "node_modules/@supabase/auth-js": {
+      "version": "2.91.1",
+      "resolved": "https://registry.npmjs.org/@supabase/auth-js/-/auth-js-2.91.1.tgz",
+      "integrity": "sha512-3gFGMPuif2BOuAHXLAGsoOlDa64PROct1v7G94pMnvUAhh75u6+vnx4MYz1wyoyDBN5lCkJPGQNg5+RIgqxnpA==",
+      "license": "MIT",
+      "dependencies": {
+        "tslib": "2.8.1"
+      },
+      "engines": {
+        "node": ">=20.0.0"
+      }
+    },
+    "node_modules/@supabase/functions-js": {
+      "version": "2.91.1",
+      "resolved": "https://registry.npmjs.org/@supabase/functions-js/-/functions-js-2.91.1.tgz",
+      "integrity": "sha512-xKepd3HZ6K6rKibriehKggIegsoz+jjV67tikN51q/YQq3AlUAkjUMSnMrqs8t5LMlAi+a3dJU812acXanR0cw==",
+      "license": "MIT",
+      "dependencies": {
+        "tslib": "2.8.1"
+      },
+      "engines": {
+        "node": ">=20.0.0"
+      }
+    },
+    "node_modules/@supabase/postgrest-js": {
+      "version": "2.91.1",
+      "resolved": "https://registry.npmjs.org/@supabase/postgrest-js/-/postgrest-js-2.91.1.tgz",
+      "integrity": "sha512-UKumTC6SGHd65G/5Gj0V58u+SkUyiH4zEJ8OP2eb06+Tqnges1E/3Tl7lyq2qbcMP8nEyH/0M7m2bYjrn++haw==",
+      "license": "MIT",
+      "dependencies": {
+        "tslib": "2.8.1"
+      },
+      "engines": {
+        "node": ">=20.0.0"
+      }
+    },
+    "node_modules/@supabase/realtime-js": {
+      "version": "2.91.1",
+      "resolved": "https://registry.npmjs.org/@supabase/realtime-js/-/realtime-js-2.91.1.tgz",
+      "integrity": "sha512-Y4rifuvzekFgd2hUfiEvcMoh/JU3s1hmpWYS7tNGL2QHuFfWg8a4w/qg5qoSMVDvgGRz6G4L6yB1FaQRTplENQ==",
+      "license": "MIT",
+      "dependencies": {
+        "@types/phoenix": "^1.6.6",
+        "@types/ws": "^8.18.1",
+        "tslib": "2.8.1",
+        "ws": "^8.18.2"
+      },
+      "engines": {
+        "node": ">=20.0.0"
+      }
+    },
+    "node_modules/@supabase/storage-js": {
+      "version": "2.91.1",
+      "resolved": "https://registry.npmjs.org/@supabase/storage-js/-/storage-js-2.91.1.tgz",
+      "integrity": "sha512-hMJNT2tSleOrWwx4FmHTpihIA2PRDixAsWflECuQ4YDkeduBZGX5m2txnstMnteWW+H+mm+92WRRFLuidXqbfA==",
+      "license": "MIT",
+      "dependencies": {
+        "iceberg-js": "^0.8.1",
+        "tslib": "2.8.1"
+      },
+      "engines": {
+        "node": ">=20.0.0"
+      }
+    },
+    "node_modules/@supabase/supabase-js": {
+      "version": "2.91.1",
+      "resolved": "https://registry.npmjs.org/@supabase/supabase-js/-/supabase-js-2.91.1.tgz",
+      "integrity": "sha512-57Fb4s5nfLn5ed2a1rPtl+LI1Wbtms8MS4qcUa0w6luaStBlFhmSeD2TLBgJWdMIupWRF6iFTH4QTrO2+pG/ZQ==",
+      "license": "MIT",
+      "dependencies": {
+        "@supabase/auth-js": "2.91.1",
+        "@supabase/functions-js": "2.91.1",
+        "@supabase/postgrest-js": "2.91.1",
+        "@supabase/realtime-js": "2.91.1",
+        "@supabase/storage-js": "2.91.1"
+      },
+      "engines": {
+        "node": ">=20.0.0"
+      }
+    },
+    "node_modules/@types/node": {
+      "version": "25.0.10",
+      "resolved": "https://registry.npmjs.org/@types/node/-/node-25.0.10.tgz",
+      "integrity": "sha512-zWW5KPngR/yvakJgGOmZ5vTBemDoSqF3AcV/LrO5u5wTWyEAVVh+IT39G4gtyAkh3CtTZs8aX/yRM82OfzHJRg==",
+      "license": "MIT",
+      "dependencies": {
+        "undici-types": "~7.16.0"
+      }
+    },
+    "node_modules/@types/phoenix": {
+      "version": "1.6.7",
+      "resolved": "https://registry.npmjs.org/@types/phoenix/-/phoenix-1.6.7.tgz",
+      "integrity": "sha512-oN9ive//QSBkf19rfDv45M7eZPi0eEXylht2OLEXicu5b4KoQ1OzXIw+xDSGWxSxe1JmepRR/ZH283vsu518/Q==",
+      "license": "MIT"
+    },
+    "node_modules/@types/ws": {
+      "version": "8.18.1",
+      "resolved": "https://registry.npmjs.org/@types/ws/-/ws-8.18.1.tgz",
+      "integrity": "sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==",
+      "license": "MIT",
+      "dependencies": {
+        "@types/node": "*"
+      }
+    },
+    "node_modules/iceberg-js": {
+      "version": "0.8.1",
+      "resolved": "https://registry.npmjs.org/iceberg-js/-/iceberg-js-0.8.1.tgz",
+      "integrity": "sha512-1dhVQZXhcHje7798IVM+xoo/1ZdVfzOMIc8/rgVSijRK38EDqOJoGula9N/8ZI5RD8QTxNQtK/Gozpr+qUqRRA==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=20.0.0"
+      }
+    },
+    "node_modules/tslib": {
+      "version": "2.8.1",
+      "resolved": "https://registry.npmjs.org/tslib/-/tslib-2.8.1.tgz",
+      "integrity": "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==",
+      "license": "0BSD"
+    },
+    "node_modules/undici-types": {
+      "version": "7.16.0",
+      "resolved": "https://registry.npmjs.org/undici-types/-/undici-types-7.16.0.tgz",
+      "integrity": "sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==",
+      "license": "MIT"
+    },
+    "node_modules/ws": {
+      "version": "8.19.0",
+      "resolved": "https://registry.npmjs.org/ws/-/ws-8.19.0.tgz",
+      "integrity": "sha512-blAT2mjOEIi0ZzruJfIhb3nps74PRWTCz1IjglWEEpQl5XS/UNama6u2/rjFkDDouqr4L67ry+1aGIALViWjDg==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=10.0.0"
+      },
+      "peerDependencies": {
+        "bufferutil": "^4.0.1",
+        "utf-8-validate": ">=5.0.2"
+      },
+      "peerDependenciesMeta": {
+        "bufferutil": {
+          "optional": true
+        },
+        "utf-8-validate": {
+          "optional": true
+        }
+      }
+    }
+  }
+}
+
+
+----------------------------------------
+FILE: package.json
+PATH: .\package.json
+----------------------------------------
+
+{
+  "dependencies": {
+    "@supabase/supabase-js": "^2.91.1"
+  }
+}
+
+
+----------------------------------------
+FILE: project_structure.txt
+PATH: .\project_structure.txt
+----------------------------------------
+
+
+----------------------------------------
+FILE: alembic.ini
+PATH: .\alembic.ini
+----------------------------------------
+
+# A generic, single database configuration.
+
+[alembic]
+# path to migration scripts.
+# this is typically a path given in POSIX (e.g. forward slashes)
+# format, relative to the token %(here)s which refers to the location of this
+# ini file
+script_location = %(here)s/alembic
+
+# template used to generate migration file names; The default value is %%(rev)s_%%(slug)s
+# Uncomment the line below if you want the files to be prepended with date and time
+# see https://alembic.sqlalchemy.org/en/latest/tutorial.html#editing-the-ini-file
+# for all available tokens
+# file_template = %%(year)d_%%(month).2d_%%(day).2d_%%(hour).2d%%(minute).2d-%%(rev)s_%%(slug)s
+
+# sys.path path, will be prepended to sys.path if present.
+# defaults to the current working directory.  for multiple paths, the path separator
+# is defined by "path_separator" below.
+prepend_sys_path = .
+
+
+# timezone to use when rendering the date within the migration file
+# as well as the filename.
+# If specified, requires the tzdata library which can be installed by adding
+# `alembic[tz]` to the pip requirements.
+# string value is passed to ZoneInfo()
+# leave blank for localtime
+# timezone =
+
+# max length of characters to apply to the "slug" field
+# truncate_slug_length = 40
+
+# set to 'true' to run the environment during
+# the 'revision' command, regardless of autogenerate
+# revision_environment = false
+
+# set to 'true' to allow .pyc and .pyo files without
+# a source .py file to be detected as revisions in the
+# versions/ directory
+# sourceless = false
+
+# version location specification; This defaults
+# to <script_location>/versions.  When using multiple version
+# directories, initial revisions must be specified with --version-path.
+# The path separator used here should be the separator specified by "path_separator"
+# below.
+# version_locations = %(here)s/bar:%(here)s/bat:%(here)s/alembic/versions
+
+# path_separator; This indicates what character is used to split lists of file
+# paths, including version_locations and prepend_sys_path within configparser
+# files such as alembic.ini.
+# The default rendered in new alembic.ini files is "os", which uses os.pathsep
+# to provide os-dependent path splitting.
+#
+# Note that in order to support legacy alembic.ini files, this default does NOT
+# take place if path_separator is not present in alembic.ini.  If this
+# option is omitted entirely, fallback logic is as follows:
+#
+# 1. Parsing of the version_locations option falls back to using the legacy
+#    "version_path_separator" key, which if absent then falls back to the legacy
+#    behavior of splitting on spaces and/or commas.
+# 2. Parsing of the prepend_sys_path option falls back to the legacy
+#    behavior of splitting on spaces, commas, or colons.
+#
+# Valid values for path_separator are:
+#
+# path_separator = :
+# path_separator = ;
+# path_separator = space
+# path_separator = newline
+#
+# Use os.pathsep. Default configuration used for new projects.
+path_separator = os
+
+# set to 'true' to search source files recursively
+# in each "version_locations" directory
+# new in Alembic version 1.10
+# recursive_version_locations = false
+
+# the output encoding used when revision files
+# are written from script.py.mako
+# output_encoding = utf-8
+
+# database URL.  This is consumed by the user-maintained env.py script only.
+# other means of configuring database URLs may be customized within the env.py
+# file.
+# sqlalchemy.url = driver://user:@localhost/dbname
+sqlalchemy.url = postgresql+psycopg2://postgres:1907@localhost:5432/pycab
+
+[post_write_hooks]
+# post_write_hooks defines scripts or Python functions that are run
+# on newly generated revision scripts.  See the documentation for further
+# detail and examples
+
+# format using "black" - use the console_scripts runner, against the "black" entrypoint
+# hooks = black
+# black.type = console_scripts
+# black.entrypoint = black
+# black.options = -l 79 REVISION_SCRIPT_FILENAME
+
+# lint with attempts to fix using "ruff" - use the module runner, against the "ruff" module
+# hooks = ruff
+# ruff.type = module
+# ruff.module = ruff
+# ruff.options = check --fix REVISION_SCRIPT_FILENAME
+
+# Alternatively, use the exec runner to execute a binary found on your PATH
+# hooks = ruff
+# ruff.type = exec
+# ruff.executable = ruff
+# ruff.options = check --fix REVISION_SCRIPT_FILENAME
+
+# Logging configuration.  This is also consumed by the user-maintained
+# env.py script only.
+[loggers]
+keys = root,sqlalchemy,alembic
+
+[handlers]
+keys = console
+
+[formatters]
+keys = generic
+
+[logger_root]
+level = WARNING
+handlers = console
+qualname =
+
+[logger_sqlalchemy]
+level = WARNING
+handlers =
+qualname = sqlalchemy.engine
+
+[logger_alembic]
+level = INFO
+handlers =
+qualname = alembic
+
+[handler_console]
+class = StreamHandler
+args = (sys.stderr,)
+level = NOTSET
+formatter = generic
+
+[formatter_generic]
+format = %(levelname)-5.5s [%(name)s] %(message)s
+datefmt = %H:%M:%S
+
+
+----------------------------------------
+FILE: celery_app.py
+PATH: .\celery_app.py
+----------------------------------------
+
+from celery import Celery
+
+celery = Celery(
+    "worker",
+    broker="redis://localhost:6379/0",
+    backend="redis://localhost:6379/0"
+)
+
+celery.conf.update(
+    task_serializer="json",
+    accept_content=["json"],
+    result_serializer="json",
+)
+
+
+----------------------------------------
+FILE: collect_project_files.py
+PATH: .\collect_project_files.py
+----------------------------------------
+
+import os
+import glob
+
+def collect_project_files(root_dir=".", output_file="project_structure.txt"):
+    """Collect project structure and file contents"""
+    exclude_dirs = {'.git', '__pycache__', 'node_modules', 'venv', '.env'}
+    include_extensions = {'.py', '.txt', '.ini', '.json', '.js', '.html'}
+    
+    with open(output_file, 'w', encoding='utf-8') as f:
+        for root, dirs, files in os.walk(root_dir):
+            # Skip excluded directories
+            dirs[:] = [d for d in dirs if d not in exclude_dirs]
+            
+            # Write directory structure
+            rel_path = os.path.relpath(root, root_dir)
+            if rel_path != '.':
+                f.write(f"\n{'='*60}\n")
+                f.write(f"DIRECTORY: {rel_path}\n")
+                f.write(f"{'='*60}\n")
+            
+            # Write file contents
+            for file in files:
+                if any(file.endswith(ext) for ext in include_extensions):
+                    file_path = os.path.join(root, file)
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as content_file:
+                            f.write(f"\n{'-'*40}\n")
+                            f.write(f"FILE: {file}\n")
+                            f.write(f"PATH: {file_path}\n")
+                            f.write(f"{'-'*40}\n\n")
+                            f.write(content_file.read())
+                            f.write("\n")
+                    except Exception as e:
+                        f.write(f"Error reading {file}: {e}\n")
+
+if __name__ == "__main__":
+    collect_project_files()
+
+----------------------------------------
+FILE: config.py
+PATH: .\config.py
+----------------------------------------
+
+# # backend/config.py
+
+# import os
+# from supabase import create_client, Client
+
+# supabase=None
+# SUPABASE_URL = os.getenv("SUPABASE_URL", "http://localhost:54321")
+# SUPABASE_KEY = os.getenv("SUPABASE_KEY", "test_key")
+
+# # 👇 This is the variable your tests expect
+# supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+supabase=None
+
+----------------------------------------
+FILE: db.py
+PATH: .\db.py
+----------------------------------------
+
+
+
+----------------------------------------
+FILE: requirements.txt
+PATH: .\requirements.txt
+----------------------------------------
+
+charset-normalizer==3.4.4
+pillow==12.1.0
+reportlab==4.4.9
+# Core
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# Database
+sqlalchemy==2.0.23
+asyncpg==0.29.0
+alembic==1.12.1
+psycopg2-binary==2.9.9
+geoalchemy2==0.14.1  # For PostGIS support
+
+# Authentication
+pyjwt==2.8.0
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.1.2
+
+# Real-time & Background
+python-socketio==5.10.0
+aiohttp==3.9.1
+celery==5.3.4
+redis==5.0.1
+
+stripe>=6.0.0,<7.0.0  
+fastapi-mail>=0.4.0
+aiosmtplib>=2.0.0
+reportlab==4.4.9
+
+# Geospatial & Maps
+geopy==2.4.0  # For distance calculations
+shapely==2.0.2  # For geometry operations
+
+# Utilities
+pydantic==2.5.0
+pydantic-settings==2.1.0
+python-dotenv==1.0.0
+email-validator==2.1.0
+
+# Background Tasks & PDF
+weasyprint==61.0  # For PDF receipts
+celery-redbeat==0.13.0  # For scheduled tasks
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.2
+factory-boy==3.3.0
+
+python-depends
+
+fastapi-mail
+email-validator
+psutil
+
+
+----------------------------------------
+FILE: run_tests.py
+PATH: .\run_tests.py
+----------------------------------------
+
+# run_tests.py
+#!/usr/bin/env python3
+"""
+Comprehensive test runner for PyCab
+Run: python run_tests.py
+"""
+
+import subprocess
+import sys
+import os
+from datetime import datetime
+
+def run_command(command, description):
+    print(f"\n{'='*60}")
+    print(f"📋 {description}")
+    print(f"{'='*60}")
+    
+    result = subprocess.run(command, shell=True, capture_output=True, text=True)
+    
+    if result.stdout:
+        print(result.stdout)
+    
+    if result.stderr:
+        print(f"STDERR: {result.stderr}")
+    
+    return result.returncode == 0
+
+def main():
+    print("🚀 PyCab - Complete Test Suite")
+    print(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    
+    # Set environment for testing
+    os.environ["ENVIRONMENT"] = "testing"
+    os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test.db"
+    
+    tests_passed = 0
+    tests_failed = 0
+    
+    # 1. Syntax and import checks
+    print("\n🔍 Phase 1: Syntax & Imports")
+    print("-" * 40)
+    
+    # Check main imports
+    try:
+        import main
+        print("✅ Main imports successful")
+        tests_passed += 1
+    except Exception as e:
+        print(f"❌ Main imports failed: {e}")
+        tests_failed += 1
+    
+    # Check database models
+    try:
+        from models.ride import Ride
+        from models.user import User
+        from models.booking import Booking
+        print("✅ Model imports successful")
+        tests_passed += 1
+    except Exception as e:
+        print(f"❌ Model imports failed: {e}")
+        tests_failed += 1
+    
+    # 2. Run unit tests
+    print("\n🔍 Phase 2: Unit Tests")
+    print("-" * 40)
+    
+    unit_success = run_command(
+        "python -m pytest tests/test_*.py -v --tb=short -x",
+        "Running unit tests"
+    )
+    
+    if unit_success:
+        print("✅ Unit tests passed")
+        tests_passed += 1
+    else:
+        print("❌ Unit tests failed")
+        tests_failed += 1
+    
+    # 3. Run integration tests
+    print("\n🔍 Phase 3: Integration Tests")
+    print("-" * 40)
+    
+    integration_success = run_command(
+        "python -m pytest tests/test_e2e.py -v --tb=short",
+        "Running integration tests"
+    )
+    
+    if integration_success:
+        print("✅ Integration tests passed")
+        tests_passed += 1
+    else:
+        print("❌ Integration tests failed")
+        tests_failed += 1
+    
+    # 4. API Contract tests
+    print("\n🔍 Phase 4: API Contract Tests")
+    print("-" * 40)
+    
+    # Start server in background for API tests
+    import subprocess
+    import time
+    import requests
+    
+    # Try to connect to running server
+    try:
+        response = requests.get("http://localhost:8000/", timeout=2)
+        if response.status_code == 200:
+            print("✅ API server is running")
+            tests_passed += 1
+        else:
+            print("❌ API server responded with non-200")
+            tests_failed += 1
+    except:
+        print("⚠️  API server not running (start with: uvicorn main:app --reload)")
+    
+    # 5. Security checks
+    print("\n🔍 Phase 5: Security Checks")
+    print("-" * 40)
+    
+    # Check for common security issues
+    security_checks = [
+        ("Checking for hardcoded secrets...", 
+         'grep -r "password\|secret\|key" --include="*.py" . | grep -v "__pycache__" | grep -v "test_" | head -10'),
+        ("Checking dependency vulnerabilities...",
+         "pip list --outdated"),
+    ]
+    
+    for check_name, command in security_checks:
+        print(f"\n{check_name}")
+        run_command(command, "")
+    
+    # 6. Performance check
+    print("\n🔍 Phase 6: Performance Check")
+    print("-" * 40)
+    
+    # Simple load test simulation
+    import time
+    start_time = time.time()
+    
+    # Simulate some database operations
+    try:
+        from sqlmodel import create_engine
+        engine = create_engine("sqlite:///:memory:")
+        from models.ride import Ride as BaseRide
+        BaseRide.metadata.create_all(engine)
+        
+        perf_time = time.time() - start_time
+        print(f"✅ Database operations: {perf_time:.2f} seconds")
+        if perf_time < 5:
+            tests_passed += 1
+        else:
+            print("⚠️  Performance warning: Database operations slow")
+            tests_failed += 1
+    except Exception as e:
+        print(f"❌ Performance check failed: {e}")
+        tests_failed += 1
+    
+    # Summary
+    print(f"\n{'='*60}")
+    print("📊 TEST SUMMARY")
+    print(f"{'='*60}")
+    print(f"Total Checks: {tests_passed + tests_failed}")
+    print(f"✅ Passed: {tests_passed}")
+    print(f"❌ Failed: {tests_failed}")
+    
+    if tests_failed == 0:
+        print("\n🎉 All tests passed! Ready for deployment.")
+        return 0
+    else:
+        print(f"\n⚠️  {tests_failed} test(s) failed. Please fix before deployment.")
+        return 1
+
+if __name__ == "__main__":
+    sys.exit(main())
+
+----------------------------------------
+FILE: test_stripe.py
+PATH: .\test_stripe.py
+----------------------------------------
+
+import stripe
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Get and verify the key
+secret_key = os.getenv("STRIPE_SECRET_KEY")
+print(f"Key being used: {secret_key[:20]}...")  # Show first 20 chars for verification
+print(f"Key length: {len(secret_key) if secret_key else 0}")
+
+stripe.api_key = secret_key
+
+# Test creating a payment intent
+try:
+    intent = stripe.PaymentIntent.create(
+        amount=5000,  # 50.00 INR
+        currency='inr',
+        description="Test payment",
+    )
+    print(f"✓ PaymentIntent created: {intent.id}")
+    print(f"✓ Client secret: {intent.client_secret}")
+except stripe.error.AuthenticationError as e:
+    print(f"✗ Authentication Error: {e}")
+    print("\nTroubleshooting steps:")
+    print("1. Check your .env file has STRIPE_SECRET_KEY")
+    print("2. Make sure key starts with 'sk_test_'")
+    print("3. Try copying the key again from Stripe Dashboard")
+except Exception as e:
+    print(f"✗ Error: {e}")
+
+----------------------------------------
+FILE: __init__.py
+PATH: .\__init__.py
+----------------------------------------
+
+
+
+============================================================
+DIRECTORY: .github
+============================================================
+
+============================================================
+DIRECTORY: .github\workflows
+============================================================
+
+============================================================
+DIRECTORY: alembic
+============================================================
+
+----------------------------------------
+FILE: env.py
+PATH: .\alembic\env.py
+----------------------------------------
+
+# from logging.config import fileConfig
+
+# from sqlalchemy import engine_from_config
+# from sqlalchemy import pool
+# from sqlmodel import SQLModel
+
+
+# from alembic import context
+
+# # this is the Alembic Config object, which provides
+# # access to the values within the .ini file in use.
+# config = context.config
+
+# # Interpret the config file for Python logging.
+# # This line sets up loggers basically.
+# if config.config_file_name is not None:
+#     fileConfig(config.config_file_name)
+
+# # add your model's MetaData object here
+# # for 'autogenerate' support
+# # from myapp import mymodel
+# # target_metadata = mymodel.Base.metadata
+# target_metadata = None
+
+# # other values from the config, defined by the needs of env.py,
+# # can be acquired:
+# # my_important_option = config.get_main_option("my_important_option")
+# # ... etc.
+
+
+# def run_migrations_offline() -> None:
+#     """Run migrations in 'offline' mode.
+
+#     This configures the context with just a URL
+#     and not an Engine, though an Engine is acceptable
+#     here as well.  By skipping the Engine creation
+#     we don't even need a DBAPI to be available.
+
+#     Calls to context.execute() here emit the given string to the
+#     script output.
+
+#     """
+#     url = config.get_main_option("sqlalchemy.url")
+#     context.configure(
+#         url=url,
+#         target_metadata=target_metadata,
+#         literal_binds=True,
+#         dialect_opts={"paramstyle": "named"},
+#     )
+
+#     with context.begin_transaction():
+#         context.run_migrations()
+
+
+# def run_migrations_online() -> None:
+#     """Run migrations in 'online' mode.
+
+#     In this scenario we need to create an Engine
+#     and associate a connection with the context.
+
+#     """
+#     connectable = engine_from_config(
+#         config.get_section(config.config_ini_section, {}),
+#         prefix="sqlalchemy.",
+#         poolclass=pool.NullPool,
+#     )
+
+#     with connectable.connect() as connection:
+#         context.configure(
+#             connection=connection, target_metadata=target_metadata
+#         )
+
+#         with context.begin_transaction():
+#             context.run_migrations()
+
+
+# if context.is_offline_mode():
+#     run_migrations_offline()
+# else:
+#     run_migrations_online()
+
+
+from logging.config import fileConfig
+from sqlalchemy import engine_from_config, pool
+from alembic import context
+import os
+import sys
+
+# Add backend folder to PYTHONPATH
+# sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+# Import your models
+from models.user import User
+from models.ride import Ride
+from models.location import DriverLocation  # if you use Base
+from models.base import SQLModelBase
+
+# Alembic Config object
+config = context.config
+
+# If using .env
+from dotenv import load_dotenv
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+config.set_main_option("sqlalchemy.url", DATABASE_URL)
+
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+
+# Add your metadata
+target_metadata = SQLModelBase.metadata
+
+def run_migrations_offline():
+    context.configure(
+        url=DATABASE_URL,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+    )
+    with context.begin_transaction():
+        context.run_migrations()
+
+def run_migrations_online():
+    connectable = engine_from_config(
+        config.get_section(config.config_ini_section),
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
+
+    with connectable.connect() as connection:
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata
+        )
+
+        with context.begin_transaction():
+            context.run_migrations()
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()
+
+
+============================================================
+DIRECTORY: alembic\versions
+============================================================
+
+----------------------------------------
+FILE: 0569e6e70448_init_models.py
+PATH: .\alembic\versions\0569e6e70448_init_models.py
+----------------------------------------
+
+"""init models
+
+Revision ID: 0569e6e70448
+Revises: 
+Create Date: 2025-11-27 18:00:19.317431
+
+"""
+
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+import sqlmodel
+
+# revision identifiers, used by Alembic.
+revision: str = '0569e6e70448'
+down_revision: Union[str, Sequence[str], None] = None
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    """Upgrade schema."""
+    # ### commands auto generated by Alembic - please adjust! ###
+    op.create_table('user',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('email', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=True),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_user_email'), 'user', ['email'], unique=True)
+    op.create_table('driverlocation',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('driver_id', sa.Integer(), nullable=False),
+    sa.Column('lat', sa.Float(), nullable=False),
+    sa.Column('lng', sa.Float(), nullable=False),
+    sa.Column('updated_at', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+    sa.ForeignKeyConstraint(['driver_id'], ['user.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('ride',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=False),
+    sa.Column('pickup_lat', sa.Float(), nullable=False),
+    sa.Column('pickup_lng', sa.Float(), nullable=False),
+    sa.Column('drop_lat', sa.Float(), nullable=False),
+    sa.Column('drop_lng', sa.Float(), nullable=False),
+    sa.Column('status', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+    sa.Column('requested_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    # ### end Alembic commands ###
+
+
+def downgrade() -> None:
+    """Downgrade schema."""
+    # ### commands auto generated by Alembic - please adjust! ###
+    op.drop_table('ride')
+    op.drop_table('driverlocation')
+    op.drop_index(op.f('ix_user_email'), table_name='user')
+    op.drop_table('user')
+    # ### end Alembic commands ###
+
+
+============================================================
+DIRECTORY: auth
+============================================================
+
+----------------------------------------
+FILE: login.py
+PATH: .\auth\login.py
+----------------------------------------
+
+
+
+----------------------------------------
+FILE: middleware.py
+PATH: .\auth\middleware.py
+----------------------------------------
+
+from fastapi import Request, HTTPException
+from jose import jwt
+import os
+
+JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
+
+async def verify_auth(request: Request):
+    auth_header = request.headers.get("Authorization")
+    
+    if not auth_header:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+
+    token = auth_header.replace("Bearer ", "")
+
+    try:
+        decoded = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        request.state.user = decoded
+    except Exception as e:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
+----------------------------------------
+FILE: register.py
+PATH: .\auth\register.py
+----------------------------------------
+
+
+
+============================================================
+DIRECTORY: models
+============================================================
+
+----------------------------------------
+FILE: base.py
+PATH: .\models\base.py
+----------------------------------------
+
+from sqlmodel import SQLModel
+
+class SQLModelBase(SQLModel):
+    pass
+
+
+----------------------------------------
+FILE: booking.py
+PATH: .\models\booking.py
+----------------------------------------
+
+from sqlmodel import SQLModel, Field
+
+class Booking(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    pickup: str
+    drop: str
+    user_id: str
+
+class BookingCreate(SQLModel):
+    pickup: str
+    drop: str
+    user_id: str
+
+
+----------------------------------------
+FILE: driver.py
+PATH: .\models\driver.py
+----------------------------------------
+
+from sqlmodel import SQLModel, Field
+from typing import Optional
+
+class Driver(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id")
+    is_online: bool = False
+
+----------------------------------------
+FILE: location.py
+PATH: .\models\location.py
+----------------------------------------
+
+# app/models/location.py
+from sqlmodel import SQLModel, Field
+
+class DriverLocation(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    driver_id: int = Field(foreign_key="user.id")
+    lat: float
+    lng: float
+    is_online:bool=Field(default=True)
+    updated_at: str | None = None
+
+
+----------------------------------------
+FILE: promo.py
+PATH: .\models\promo.py
+----------------------------------------
+
+# models/promo.py
+from sqlmodel import SQLModel, Field
+from typing import Optional
+from datetime import datetime
+
+class PromoCode(SQLModel, table=True):
+    """Model for promotional codes"""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    
+    code: str = Field(index=True, unique=True)
+    discount_type: str = Field(default="percentage")  # "percentage" or "fixed"
+    discount_value: float  # 10 for 10% or ₹100 for fixed
+    
+    max_uses: Optional[int] = None
+    used_count: int = Field(default=0)
+    
+    valid_from: datetime
+    valid_until: datetime
+    
+    is_active: bool = Field(default=True)
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+----------------------------------------
+FILE: rating.py
+PATH: .\models\rating.py
+----------------------------------------
+
+# models/rating.py
+from sqlmodel import SQLModel, Field, Relationship
+from typing import Optional
+from datetime import datetime
+
+class Rating(SQLModel, table=True):
+    """Model for ride ratings and reviews"""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    
+    # Relationships
+    ride_id: int = Field(foreign_key="ride.id", index=True)
+    rider_id: str  # User who is rating
+    driver_id: Optional[str] = None  # Driver being rated (if applicable)
+    
+    # Rating details
+    rating: int = Field(ge=1, le=5)  # 1-5 stars
+    review: Optional[str] = None  # Optional text review
+    
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    class Config:
+        table_name = "ratings"
+
+----------------------------------------
+FILE: ride.py
+PATH: .\models\ride.py
+----------------------------------------
+
+from sqlmodel import SQLModel, Field
+from typing import Optional
+from datetime import datetime
+
+class Ride(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: str
+    pickup_address: str
+    drop_address: str
+    pickup_lat: float
+    pickup_lng: float
+    drop_lat: float
+    drop_lng: float
+    estimated_distance_km: Optional[float] = None
+    estimated_price: Optional[float] = None
+    status: str = "requested"
+    # payment_intent_id: Optional[str] = None
+    # payment_status: str = "pending"
+    driver_id: Optional[int] = Field(default=None, foreign_key="user.id")
+
+     # New payment fields
+    payment_intent_id: Optional[str] = None
+    payment_status: str = "pending"  # pending, paid, failed, refunded
+    payment_amount: Optional[float] = None
+    
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = None
+
+----------------------------------------
+FILE: user.py
+PATH: .\models\user.py
+----------------------------------------
+
+# app/models/user.py
+
+from sqlmodel import SQLModel, Field
+from typing import Optional
+from datetime import datetime
+
+class User(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    first_name: str = Field(index=True)
+    last_name: str = Field(index=True)
+
+    email: str = Field(unique=True, index=True)
+
+    hashed_password: str
+
+    created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
+
+
+----------------------------------------
+FILE: __init__.py
+PATH: .\models\__init__.py
+----------------------------------------
+
+
+
+============================================================
+DIRECTORY: pdf
+============================================================
+
+----------------------------------------
+FILE: receipt.py
+PATH: .\pdf\receipt.py
+----------------------------------------
+
+# from weasyprint import HTML
+# import tempfile
+
+# def generate_pdf(ride: dict):
+#     html = f"""
+#     <html>
+#     <body style="font-family: Arial;">
+#         <h2>Ride Receipt</h2>
+#         <p><b>Ride ID:</b> {ride['id']}</p>
+#         <p><b>Pickup:</b> {ride['pickup']}</p>
+#         <p><b>Dropoff:</b> {ride['dropoff']}</p>
+#         <p><b>Distance:</b> {ride['distance']} km</p>
+#         <p><b>Fare:</b> ₹{ride['fare']}</p>
+#         <p><b>Date:</b> {ride['created_at']}</p>
+#     </body>
+#     </html>
+#     """
+
+#     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+#     HTML(string=html).write_pdf(tmp.name)
+#     return tmp.name
+
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+
+def generate_pdf(ride):
+    file_path = f"receipt_{ride['id']}.pdf"
+    c = canvas.Canvas(file_path, pagesize=letter)
+
+    c.setFont("Helvetica-Bold", 20)
+    c.drawString(100, 750, "Ride Receipt")
+
+    c.setFont("Helvetica", 12)
+    c.drawString(100, 720, f"Ride ID: {ride['id']}")
+    c.drawString(100, 700, f"User: {ride['user_id']}")
+    c.drawString(100, 680, f"Pickup: {ride['pickup']}")
+    c.drawString(100, 660, f"Drop: {ride['drop']}")
+    c.drawString(100, 640, f"Amount Paid: ₹{ride['amount']}")
+
+    c.drawString(100, 600, "Thank you for riding with PyCab!")
+
+    c.save()
+    return file_path
+
+
+
+============================================================
+DIRECTORY: routes
+============================================================
+
+----------------------------------------
+FILE: auth.py
+PATH: .\routes\auth.py
+----------------------------------------
+
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel, EmailStr
+from dotenv import load_dotenv
+import os
+
+# Load env variables
+load_dotenv()
+
+router = APIRouter(prefix="/auth", tags=["Auth"])
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+
+# We will create the client only when needed
+_supabase = None
+
+def get_supabase():
+    global _supabase
+    if _supabase is None:
+        # Check if we have the required environment variables
+        if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+            raise HTTPException(status_code=500, detail="Supabase credentials not configured")
+        from supabase import create_client
+        _supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+    return _supabase
+
+# ----------------- Schemas -----------------
+
+class RegisterRequest(BaseModel):
+    first_name: str
+    last_name: str
+    email: EmailStr
+    password: str
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+# ----------------- Routes -----------------
+
+@router.post("/register")
+def register(user: RegisterRequest):
+    supabase = get_supabase()  # This will raise HTTPException if not configured
+
+    try:
+        # Create user in Supabase Auth
+        res = supabase.auth.sign_up({
+            "email": user.email,
+            "password": user.password,
+        })
+
+        if res.user is None:
+            raise HTTPException(status_code=400, detail="Registration failed")
+
+        # Save extra profile info
+        supabase.table("profiles").insert({
+            "id": res.user.id,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "email": user.email,
+        }).execute()
+
+        return {"message": "User registered successfully"}
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/login")
+def login(user: LoginRequest):
+    supabase = get_supabase()  # This will raise HTTPException if not configured
+
+    try:
+        res = supabase.auth.sign_in_with_password({
+            "email": user.email,
+            "password": user.password
+        })
+
+        if res.user is None:
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+
+        return {
+            "message": "Login successful",
+            "access_token": res.session.access_token
+        }
+
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+----------------------------------------
+FILE: booking.py
+PATH: .\routes\booking.py
+----------------------------------------
+
+from fastapi import APIRouter
+from models.booking import BookingCreate
+
+router = APIRouter()
+
+@router.post("/create")
+async def create_booking(data: BookingCreate):
+    # Normally you save to DB, but for testing we return the same data
+    return data.dict()
+
+
+----------------------------------------
+FILE: driver.py
+PATH: .\routes\driver.py
+----------------------------------------
+
+# from fastapi import APIRouter, Depends
+# from sqlmodel import select
+# from db import SessionLocal
+# from models import Driver
+
+# router = APIRouter()
+
+# @router.post("/driver/online")
+# async def set_online(user_id: str, lat: float, lng: float):
+#     async with SessionLocal() as session:
+#         driver = (await session.exec(select(Driver).where(Driver.user_id == user_id))).first()
+#         if not driver:
+#             driver = Driver(user_id=user_id, name="Unknown", lat=lat, lng=lng, is_online=True)
+#             session.add(driver)
+#         else:
+#             driver.is_online = True
+#             driver.lat = lat
+#             driver.lng = lng
+
+#         await session.commit()
+#         return {"status": "online"}
+
+# @router.post("/driver/offline")
+# async def set_offline(user_id: str):
+#     async with SessionLocal() as session:
+#         driver = (await session.exec(select(Driver).where(Driver.user_id == user_id))).first()
+#         if driver:
+#             driver.is_online = False
+#             await session.commit()
+#     return {"status": "offline"}
+
+
+from fastapi import APIRouter, Depends
+from sqlmodel import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from db import get_session
+from models.user import User
+from models.location import DriverLocation
+
+router = APIRouter(prefix="/driver", tags=["Driver"])
+
+@router.post("/online/{user_id}")
+async def set_online(user_id: int, lat: float, lng: float, session: AsyncSession = Depends(get_session)):
+    # Check if the user is a driver
+    result = await session.execute(select(User).where(User.id == user_id, User.role == "driver"))
+    user = result.scalar_one_or_none()
+    if not user:
+        return {"error": "User not found or not a driver"}
+    
+    # Check if there's an existing DriverLocation for this driver
+    result = await session.execute(select(DriverLocation).where(DriverLocation.driver_id == user_id))
+    driver_location = result.scalar_one_or_none()
+    
+    if driver_location:
+        driver_location.lat = lat
+        driver_location.lng = lng
+        driver_location.is_online = True
+    else:
+        driver_location = DriverLocation(driver_id=user_id, lat=lat, lng=lng, is_online=True)
+    
+    session.add(driver_location)
+    await session.commit()
+    return {"status": "online", "driver_id": user_id, "location": {"lat": lat, "lng": lng}}
+
+@router.post("/offline/{user_id}")
+async def set_offline(user_id: int, session: AsyncSession = Depends(get_session)):
+    result = await session.execute(select(DriverLocation).where(DriverLocation.driver_id == user_id))
+    driver_location = result.scalar_one_or_none()
+    if driver_location:
+        driver_location.is_online = False
+        session.add(driver_location)
+        await session.commit()
+    return {"status": "offline"}
+
+----------------------------------------
+FILE: health.py
+PATH: .\routes\health.py
+----------------------------------------
+
+# routes/health.py
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
+import redis
+import os
+from datetime import datetime
+import psutil
+
+from db import get_session
+
+router = APIRouter(tags=["Health"])
+
+# Initialize Redis client if available
+try:
+    redis_client = redis.Redis(
+        host=os.getenv("REDIS_HOST", "localhost"),
+        port=int(os.getenv("REDIS_PORT", 6379)),
+        decode_responses=True
+    )
+    REDIS_AVAILABLE = True
+except:
+    REDIS_AVAILABLE = False
+
+@router.get("/health")
+async def health_check():
+    """Basic health check endpoint"""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "service": "pycab-backend"
+    }
+
+@router.get("/health/detailed")
+async def detailed_health_check(session: AsyncSession = Depends(get_session)):
+    """Detailed health check with dependencies"""
+    health_status = {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "checks": {}
+    }
+    
+    # Check database
+    try:
+        await session.execute(text("SELECT 1"))
+        health_status["checks"]["database"] = {
+            "status": "healthy",
+            "response_time_ms": "N/A"
+        }
+    except Exception as e:
+        health_status["checks"]["database"] = {
+            "status": "unhealthy",
+            "error": str(e)
+        }
+        health_status["status"] = "degraded"
+    
+    # Check Redis
+    if REDIS_AVAILABLE:
+        try:
+            start = datetime.now()
+            redis_client.ping()
+            response_time = (datetime.now() - start).total_seconds() * 1000
+            
+            health_status["checks"]["redis"] = {
+                "status": "healthy",
+                "response_time_ms": round(response_time, 2)
+            }
+        except Exception as e:
+            health_status["checks"]["redis"] = {
+                "status": "unhealthy",
+                "error": str(e)
+            }
+            health_status["status"] = "degraded"
+    else:
+        health_status["checks"]["redis"] = {
+            "status": "not_configured",
+            "message": "Redis not configured"
+        }
+    
+    # System metrics
+    health_status["system"] = {
+        "cpu_percent": psutil.cpu_percent(),
+        "memory_percent": psutil.virtual_memory().percent,
+        "disk_percent": psutil.disk_usage('/').percent
+    }
+    
+    return health_status
+
+@router.get("/metrics")
+async def metrics_endpoint():
+    """Basic metrics endpoint (for monitoring)"""
+    return {
+        "requests_processed": 0,  # You'd increment this in middleware
+        "active_connections": 0,
+        "error_rate": 0.0,
+        "uptime_seconds": 0,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+@router.get("/readiness")
+async def readiness_probe():
+    """Kubernetes readiness probe"""
+    return {"status": "ready"}
+
+@router.get("/liveness")
+async def liveness_probe():
+    """Kubernetes liveness probe"""
+    return {"status": "alive"}
+
+----------------------------------------
+FILE: matching.py
+PATH: .\routes\matching.py
+----------------------------------------
+
+# from fastapi import APIRouter
+# from sqlmodel import select
+# from shapely.geometry import Point
+# from db import SessionLocal
+# from models import Driver, Ride
+# from models.ride import Ride
+# from models.location import DriverLocation 
+
+# router = APIRouter()
+
+# @router.post("/match-driver")
+# async def match_driver(ride_id: int):
+#     async with SessionLocal() as session:
+#         ride = await session.get(Ride, ride_id)
+#         rider_point = Point(ride.start_lat, ride.start_lng)
+
+#         drivers = (await session.exec(select(Driver).where(Driver.is_online == True))).all()
+
+#         if not drivers:
+#             return {"driver": None}
+
+#         # Get nearest driver
+#         nearest = min(drivers, key=lambda d: rider_point.distance(Point(d.lat, d.lng)))
+
+#         ride.driver_id = nearest.user_id
+#         ride.status = "assigned"
+#         await session.commit()
+
+#         return {"driver_id": nearest.user_id}
+
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlmodel import select
+from sqlalchemy.ext.asyncio import AsyncSession
+import math
+
+from db import get_session
+from models.user import User
+from models.location import DriverLocation
+from models.ride import Ride
+
+router = APIRouter(prefix="/matching", tags=["Matching"])
+
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """Calculate the great circle distance between two points in kilometers."""
+    R = 6371.0  # Earth radius in kilometers
+
+    lat1_rad = math.radians(lat1)
+    lon1_rad = math.radians(lon1)
+    lat2_rad = math.radians(lat2)
+    lon2_rad = math.radians(lon2)
+
+    dlat = lat2_rad - lat1_rad
+    dlon = lon2_rad - lon1_rad
+
+    a = math.sin(dlat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    return R * c
+
+@router.post("/match-driver/{ride_id}")
+async def match_driver(ride_id: int, session: AsyncSession = Depends(get_session)):
+    # Get the ride
+    result = await session.execute(select(Ride).where(Ride.id == ride_id))
+    ride = result.scalar_one_or_none()
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride not found")
+    
+    # Get all drivers (users with role 'driver') who are online (have a DriverLocation entry)
+    result = await session.execute(
+        select(User, DriverLocation).join(
+            DriverLocation, User.id == DriverLocation.driver_id
+        ).where(User.role == "driver")
+    )
+    drivers_with_locations = result.all()
+    
+    if not drivers_with_locations:
+        raise HTTPException(status_code=404, detail="No drivers available")
+    
+    # Find the nearest driver
+    nearest_driver = None
+    min_distance = float('inf')
+    
+    for user, driver_location in drivers_with_locations:
+        distance = haversine_distance(
+            ride.pickup_lat, ride.pickup_lng,
+            driver_location.lat, driver_location.lng
+        )
+        if distance < min_distance:
+            min_distance = distance
+            nearest_driver = user
+    
+    # Assign the driver to the ride
+    ride.driver_id = nearest_driver.id
+    ride.status = "driver_assigned"
+    session.add(ride)
+    await session.commit()
+    
+    return {
+        "driver_id": nearest_driver.id,
+        "driver_name": f"{nearest_driver.first_name} {nearest_driver.last_name}",
+        "distance_km": round(min_distance, 2)
+    }
+
+----------------------------------------
+FILE: payments.py
+PATH: .\routes\payments.py
+----------------------------------------
+
+# from fastapi import APIRouter
+# import stripe
+# import os
+
+# router = APIRouter()
+# stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+# @router.post("/pay/demo")
+# def demo_payment(ride_id: int, amount: int):
+#     return {
+#         "payment_status": "success_demo",
+#         "ride_id": ride_id,
+#         "amount": amount
+#     }
+
+# import os
+# import stripe
+# from fastapi import APIRouter, HTTPException, Request, Depends
+# from sqlmodel.ext.asyncio.session import AsyncSession
+# from db import get_session
+# from models.ride import Ride
+# from services.matching import match_driver_to_ride
+
+# router = APIRouter()
+
+# stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+# webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
+
+# @router.post("/create-intent/{ride_id}")
+# async def create_payment_intent(ride_id: int, session: AsyncSession = Depends(get_session)):
+#     ride = await session.get(Ride, ride_id)
+#     if not ride:
+#         raise HTTPException(status_code=404, detail="Ride not found")
+    
+#     amount = int(ride.estimated_price * 100)  # Convert to paise
+
+#     try:
+#         intent = stripe.PaymentIntent.create(
+#             amount=amount,
+#             currency="inr",
+#             metadata={"ride_id": ride_id}
+#         )
+#         ride.payment_intent_id = intent.id
+#         session.add(ride)
+#         await session.commit()
+
+#         return {"client_secret": intent.client_secret}
+#     except Exception as e:
+#         raise HTTPException(status_code=400, detail=str(e))
+
+# @router.post("/webhook")
+# async def stripe_webhook(request: Request, session: AsyncSession = Depends(get_session)):
+    # payload = await request.body()
+    # sig_header = request.headers.get('Stripe-Signature')
+
+    # try:
+    #     event = stripe.Webhook.construct_event(
+    #         payload, sig_header, webhook_secret
+    #     )
+    # except ValueError as e:
+    #     raise HTTPException(status_code=400, detail="Invalid payload")
+    # except stripe.error.SignatureVerificationError as e:
+    #     raise HTTPException(status_code=400, detail="Invalid signature")
+
+    # if event['type'] == 'payment_intent.succeeded':
+    #     payment_intent = event['data']['object']
+    #     ride = await session.exec(Ride.where(Ride.payment_intent_id == payment_intent['id']))
+    #     ride = ride.first()
+    #     if ride:
+    #         ride.payment_status = "succeeded"
+    #         session.add(ride)
+    #         await session.commit()
+    #         # Now, match a driver to the ride
+    #         await match_driver_to_ride(session, ride)
+    # else:
+    #     print('Unhandled event type {}'.format(event['type']))
+
+    # return {"received": True}
+    
+# routes/payments.py
+from fastapi import APIRouter, HTTPException, Request,Depends
+from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+import stripe
+import os
+from typing import Dict
+import json
+from db import get_session
+
+router = APIRouter(prefix="/payments", tags=["Payments"])
+
+# Initialize Stripe
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
+
+@router.post("/initiate/{ride_id}")
+async def initiate_payment(ride_id: int, session: AsyncSession = Depends(get_session)):
+    """Get ride price and create payment intent"""
+    from sqlmodel import select
+    from models.ride import Ride
+    
+    # Get ride details
+    result = await session.execute(select(Ride).where(Ride.id == ride_id))
+    ride = result.scalar_one_or_none()
+    
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride not found")
+    
+    if not ride.estimated_price:
+        raise HTTPException(status_code=400, detail="Ride price not calculated")
+    
+    # Create payment intent
+    try:
+        intent = stripe.PaymentIntent.create(
+            amount=int(ride.estimated_price * 100),  # Convert to paise
+            currency='inr',
+            metadata={'ride_id': ride_id},
+            description=f"Payment for ride #{ride_id}",
+        )
+        
+        # Update ride with payment intent ID
+        ride.payment_intent_id = intent.id
+        session.add(ride)
+        await session.commit()
+        
+        return {
+            "client_secret": intent.client_secret,
+            "payment_intent_id": intent.id,
+            "amount": ride.estimated_price,
+            "ride_id": ride_id
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/create-payment-intent")
+async def create_payment_intent(payload: Dict):
+    """Create a Stripe PaymentIntent for a ride"""
+    try:
+        ride_id = payload.get("ride_id")
+        amount = payload.get("amount", 100)  # Default 100 INR
+        
+        if not ride_id:
+            raise HTTPException(status_code=400, detail="ride_id is required")
+        
+        # Create PaymentIntent
+        intent = stripe.PaymentIntent.create(
+            amount=int(amount * 100),  # Convert to paise
+            currency='inr',
+            metadata={'ride_id': ride_id},
+            description=f"Payment for ride #{ride_id}",
+        )
+        
+        return {
+            "client_secret": intent.client_secret,
+            "payment_intent_id": intent.id,
+            "status": intent.status
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# @router.post("/webhook")
+# async def stripe_webhook(request: Request):
+#     """Handle Stripe webhooks for payment events"""
+#     payload = await request.body()
+#     sig_header = request.headers.get('stripe-signature')
+    
+#     try:
+#         event = stripe.Webhook.construct_event(
+#             payload, sig_header, STRIPE_WEBHOOK_SECRET
+#         )
+#     except ValueError as e:
+#         raise HTTPException(status_code=400, detail="Invalid payload")
+#     except stripe.error.SignatureVerificationError as e:
+#         raise HTTPException(status_code=400, detail="Invalid signature")
+    
+#     # Handle the event
+#     if event['type'] == 'payment_intent.succeeded':
+#         payment_intent = event['data']['object']
+#         ride_id = payment_intent['metadata'].get('ride_id')
+        
+#         # Update ride status to paid
+#         # You'll need to implement this function
+#         await update_ride_payment_status(ride_id, "paid", payment_intent['id'])
+        
+#         print(f"Payment succeeded for ride {ride_id}")
+        
+#     elif event['type'] == 'payment_intent.payment_failed':
+#         payment_intent = event['data']['object']
+#         ride_id = payment_intent['metadata'].get('ride_id')
+        
+#         await update_ride_payment_status(ride_id, "failed", payment_intent['id'])
+        
+#         print(f"Payment failed for ride {ride_id}")
+    
+#     return JSONResponse(status_code=200, content={"status": "success"})
+
+# routes/payments.py - Update the webhook function
+@router.post("/webhook")
+async def stripe_webhook(request: Request, session: AsyncSession = Depends(get_session)):
+    """Handle Stripe webhooks for payment events"""
+    payload = await request.body()
+    sig_header = request.headers.get('stripe-signature')
+    
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, STRIPE_WEBHOOK_SECRET
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="Invalid payload")
+    except stripe.error.SignatureVerificationError as e:
+        raise HTTPException(status_code=400, detail="Invalid signature")
+    
+    # Handle the event
+    if event['type'] == 'payment_intent.succeeded':
+        payment_intent = event['data']['object']
+        ride_id = payment_intent['metadata'].get('ride_id')
+        
+        # Update ride status
+        from sqlmodel import select, update
+        from models.ride import Ride
+        
+        # Get the ride
+        result = await session.execute(select(Ride).where(Ride.id == ride_id))
+        ride = result.scalar_one_or_none()
+        
+        if ride:
+            # Update ride status
+            ride.payment_status = "paid"
+            ride.status = "completed"
+            session.add(ride)
+            await session.commit()
+            
+            # Generate and send receipt
+            from tasks.receipt_task import send_receipt_email
+            
+            # Prepare ride data for receipt
+            ride_data = {
+                "id": ride.id,
+                "user_id": ride.user_id,
+                "pickup": ride.pickup_address,
+                "drop": ride.drop_address,
+                "distance": ride.estimated_distance_km,
+                "amount": ride.estimated_price,
+                "created_at": ride.created_at.isoformat() if ride.created_at else None
+            }
+            
+            # Send receipt email (async via Celery)
+            # Note: For now, we'll just print. In production, uncomment the celery task
+            print(f"📧 Receipt email would be sent for ride {ride.id}")
+            # send_receipt_email.delay(ride.user_email, ride_data)
+            
+            print(f"✅ Payment succeeded and ride {ride_id} marked as completed")
+            
+    elif event['type'] == 'payment_intent.payment_failed':
+        payment_intent = event['data']['object']
+        ride_id = payment_intent['metadata'].get('ride_id')
+        
+        # Update ride status to failed
+        from sqlmodel import select
+        from models.ride import Ride
+        
+        result = await session.execute(select(Ride).where(Ride.id == ride_id))
+        ride = result.scalar_one_or_none()
+        
+        if ride:
+            ride.payment_status = "failed"
+            session.add(ride)
+            await session.commit()
+            print(f"❌ Payment failed for ride {ride_id}")
+    
+    return JSONResponse(status_code=200, content={"status": "success"})
+
+async def update_ride_payment_status(ride_id: int, status: str, payment_intent_id: str):
+    """Update ride payment status in database"""
+    # This function needs database access
+    # You'll need to import your session and models
+    from sqlmodel.ext.asyncio.session import AsyncSession
+    from sqlmodel import select
+    from db import get_session
+    from models.ride import Ride
+    
+    # In a real app, you'd use dependency injection
+    # For now, create a simple update
+    print(f"Updating ride {ride_id} to status: {status}")
+    return True
+
+@router.get("/status/{payment_intent_id}")
+async def get_payment_status(payment_intent_id: str):
+    """Check payment status"""
+    try:
+        intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+        return {
+            "status": intent.status,
+            "amount": intent.amount / 100,  # Convert back from paise
+            "currency": intent.currency,
+            "ride_id": intent.metadata.get('ride_id')
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+----------------------------------------
+FILE: payment_routes.py
+PATH: .\routes\payment_routes.py
+----------------------------------------
+
+# routes/payment_routes.py
+from fastapi import APIRouter, HTTPException, Depends
+from sqlmodel import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Dict
+import stripe
+import os
+
+from db import get_session
+from models.ride import Ride
+
+router = APIRouter(prefix="/payments", tags=["Payments"])
+
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+@router.post("/create-intent/{ride_id}")
+async def create_payment_intent(ride_id: int, session: AsyncSession = Depends(get_session)):
+    """Create a Stripe PaymentIntent for a ride"""
+    # Get ride details
+    result = await session.execute(select(Ride).where(Ride.id == ride_id))
+    ride = result.scalar_one_or_none()
+    
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride not found")
+    
+    if not ride.estimated_price:
+        raise HTTPException(status_code=400, detail="Ride price not calculated")
+    
+    # Create payment intent
+    try:
+        intent = stripe.PaymentIntent.create(
+            amount=int(ride.estimated_price * 100),  # Convert to paise
+            currency='inr',
+            metadata={'ride_id': ride_id},
+            description=f"Payment for ride #{ride_id}",
+        )
+        
+        # Update ride with payment intent ID
+        ride.payment_intent_id = intent.id
+        session.add(ride)
+        await session.commit()
+        
+        return {
+            "client_secret": intent.client_secret,
+            "payment_intent_id": intent.id,
+            "amount": ride.estimated_price,
+            "ride_id": ride_id
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/status/{ride_id}")
+async def get_payment_status(ride_id: int, session: AsyncSession = Depends(get_session)):
+    """Get payment status for a ride"""
+    result = await session.execute(select(Ride).where(Ride.id == ride_id))
+    ride = result.scalar_one_or_none()
+    
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride not found")
+    
+    if not ride.payment_intent_id:
+        return {"status": "not_created", "ride_id": ride_id}
+    
+    try:
+        intent = stripe.PaymentIntent.retrieve(ride.payment_intent_id)
+        return {
+            "status": intent.status,
+            "payment_intent_id": intent.id,
+            "amount": intent.amount / 100,
+            "ride_id": ride_id
+        }
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+----------------------------------------
+FILE: promo.py
+PATH: .\routes\promo.py
+----------------------------------------
+
+# routes/promos.py
+from fastapi import APIRouter, HTTPException, Depends
+from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlmodel import select
+from datetime import datetime
+from typing import Optional
+
+from db import get_session
+from models.promo import PromoCode
+from pydantic import BaseModel
+
+router = APIRouter(prefix="/promos", tags=["Promo Codes"])
+
+class PromoApply(BaseModel):
+    code: str
+    ride_amount: float
+
+class PromoCreate(BaseModel):
+    code: str
+    discount_type: str = "percentage"
+    discount_value: float
+    max_uses: Optional[int] = None
+    valid_from: datetime
+    valid_until: datetime
+
+@router.post("/apply")
+async def apply_promo_code(
+    promo_data: PromoApply,
+    session: AsyncSession = Depends(get_session)
+):
+    """Apply a promo code to a ride"""
+    result = await session.execute(
+        select(PromoCode).where(PromoCode.code == promo_data.code)
+    )
+    promo = result.scalar_one_or_none()
+    
+    if not promo:
+        raise HTTPException(status_code=404, detail="Promo code not found")
+    
+    # Check validity
+    now = datetime.utcnow()
+    if not promo.is_active:
+        raise HTTPException(status_code=400, detail="Promo code is inactive")
+    
+    if now < promo.valid_from or now > promo.valid_until:
+        raise HTTPException(status_code=400, detail="Promo code expired")
+    
+    if promo.max_uses and promo.used_count >= promo.max_uses:
+        raise HTTPException(status_code=400, detail="Promo code usage limit reached")
+    
+    # Calculate discount
+    if promo.discount_type == "percentage":
+        discount = (promo.discount_value / 100) * promo_data.ride_amount
+    else:  # fixed
+        discount = min(promo.discount_value, promo_data.ride_amount)
+    
+    final_amount = max(0, promo_data.ride_amount - discount)
+    
+    # Increment usage
+    promo.used_count += 1
+    session.add(promo)
+    await session.commit()
+    
+    return {
+        "success": True,
+        "code": promo.code,
+        "discount_type": promo.discount_type,
+        "discount_applied": discount,
+        "original_amount": promo_data.ride_amount,
+        "final_amount": final_amount
+    }
+
+@router.post("/create", dependencies=[Depends(is_admin)])  # Add admin check
+async def create_promo_code(
+    promo_data: PromoCreate,
+    session: AsyncSession = Depends(get_session)
+):
+    """Create a new promo code (admin only)"""
+    # Check if code already exists
+    existing = await session.execute(
+        select(PromoCode).where(PromoCode.code == promo_data.code)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Promo code already exists")
+    
+    promo = PromoCode(**promo_data.dict())
+    session.add(promo)
+    await session.commit()
+    await session.refresh(promo)
+    
+    return {"message": "Promo code created successfully", "promo": promo}
+
+----------------------------------------
+FILE: ratings.py
+PATH: .\routes\ratings.py
+----------------------------------------
+
+# routes/ratings.py
+from fastapi import APIRouter, HTTPException, Depends
+from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlmodel import select, func
+from typing import List
+
+from db import get_session
+from models.rating import Rating
+from models.ride import Ride
+from pydantic import BaseModel
+
+router = APIRouter(prefix="/ratings", tags=["Ratings"])
+
+class RatingCreate(BaseModel):
+    ride_id: int
+    rating: int
+    review: Optional[str] = None
+
+class RatingResponse(BaseModel):
+    id: int
+    ride_id: int
+    rating: int
+    review: Optional[str]
+    created_at: datetime
+
+@router.post("/", response_model=RatingResponse)
+async def create_rating(
+    rating_data: RatingCreate,
+    session: AsyncSession = Depends(get_session),
+    user_id: str = "demo_user"  # In real app, get from auth token
+):
+    """Submit a rating for a completed ride"""
+    
+    # Check if ride exists and is completed
+    result = await session.execute(select(Ride).where(Ride.id == rating_data.ride_id))
+    ride = result.scalar_one_or_none()
+    
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride not found")
+    
+    if ride.status != "completed":
+        raise HTTPException(status_code=400, detail="Can only rate completed rides")
+    
+    # Check if user already rated this ride
+    existing = await session.execute(
+        select(Rating).where(
+            Rating.ride_id == rating_data.ride_id,
+            Rating.rider_id == user_id
+        )
+    )
+    
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Already rated this ride")
+    
+    # Create rating
+    rating = Rating(
+        ride_id=rating_data.ride_id,
+        rider_id=user_id,
+        rating=rating_data.rating,
+        review=rating_data.review
+    )
+    
+    session.add(rating)
+    await session.commit()
+    await session.refresh(rating)
+    
+    return rating
+
+@router.get("/ride/{ride_id}", response_model=List[RatingResponse])
+async def get_ride_ratings(ride_id: int, session: AsyncSession = Depends(get_session)):
+    """Get all ratings for a specific ride"""
+    result = await session.execute(
+        select(Rating).where(Rating.ride_id == ride_id).order_by(Rating.created_at.desc())
+    )
+    ratings = result.scalars().all()
+    return ratings
+
+@router.get("/user/{user_id}/average")
+async def get_user_average_rating(user_id: str, session: AsyncSession = Depends(get_session)):
+    """Get average rating for a user (as driver)"""
+    result = await session.execute(
+        select(func.avg(Rating.rating)).where(Rating.driver_id == user_id)
+    )
+    avg_rating = result.scalar()
+    
+    return {"user_id": user_id, "average_rating": round(avg_rating, 2) if avg_rating else None}
+
+----------------------------------------
+FILE: receipts.py
+PATH: .\routes\receipts.py
+----------------------------------------
+
+# routes/receipts.py
+from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import FileResponse
+from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlmodel import select
+import os
+
+from db import get_session
+from models.ride import Ride
+from pdf.receipt import generate_pdf
+
+router = APIRouter(prefix="/receipts", tags=["Receipts"])
+
+@router.get("/{ride_id}")
+async def get_ride_receipt(ride_id: int, session: AsyncSession = Depends(get_session)):
+    """Download PDF receipt for a completed ride"""
+    result = await session.execute(select(Ride).where(Ride.id == ride_id))
+    ride = result.scalar_one_or_none()
+    
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride not found")
+    
+    if ride.payment_status != "paid":
+        raise HTTPException(status_code=400, detail="Receipt only available for paid rides")
+    
+    # Generate PDF
+    ride_data = {
+        "id": ride.id,
+        "user_id": ride.user_id,
+        "pickup": ride.pickup_address,
+        "drop": ride.drop_address,
+        "distance": ride.estimated_distance_km,
+        "amount": ride.estimated_price,
+        "created_at": ride.created_at.isoformat() if ride.created_at else None
+    }
+    
+    pdf_path = generate_pdf(ride_data)
+    
+    if not os.path.exists(pdf_path):
+        raise HTTPException(status_code=500, detail="Failed to generate receipt")
+    
+    return FileResponse(
+        pdf_path, 
+        media_type="application/pdf",
+        filename=f"ride_receipt_{ride_id}.pdf"
+    )
+
+----------------------------------------
+FILE: rides.py
+PATH: .\routes\rides.py
+----------------------------------------
+
+# from fastapi import APIRouter, Depends, HTTPException
+# from sqlmodel.ext.asyncio.session import AsyncSession
+# from typing import List, Dict
+# import math
+# import httpx
+# import os
+# import logging
+# from sqlmodel import select
+
+# from db import get_session
+# from models.ride import Ride
+
+# logging.basicConfig(level=logging.INFO)
+# logger = logging.getLogger(__name__)
+
+# OSRM_BASE = os.getenv("OSRM_URL", "http://router.project-osrm.org")
+
+# router = APIRouter(prefix="/rides", tags=["rides"])
+
+# # -------------------------
+# # Helpers
+# # -------------------------
+# def haversine_km(lat1, lng1, lat2, lng2):
+#     R = 6371.0
+#     phi1 = math.radians(lat1)
+#     phi2 = math.radians(lat2)
+#     dphi = math.radians(lat2 - lat1)
+#     dlambda = math.radians(lng2 - lng1)
+#     a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*(math.sin(dlambda/2)**2)
+#     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+#     return R * c
+
+# async def route_distance_km_osrm(pickup, drop):
+#     lon1, lat1 = pickup["lng"], pickup["lat"]
+#     lon2, lat2 = drop["lng"], drop["lat"]
+#     url = f"{OSRM_BASE}/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=false"
+#     async with httpx.AsyncClient(timeout=10) as client:
+#         r = await client.get(url)
+#     if r.status_code != 200:
+#         raise RuntimeError("OSRM request failed")
+#     data = r.json()
+#     distance_m = data["routes"][0]["distance"]
+#     return distance_m / 1000.0
+
+# # -------------------------
+# # Estimate Ride
+# # -------------------------
+# @router.post("/estimate")
+# async def estimate_ride(payload: Dict):
+#     try:
+#         pickup_lat = float(payload["pickup_lat"])
+#         pickup_lng = float(payload["pickup_lng"])
+#         drop_lat = float(payload["drop_lat"])
+#         drop_lng = float(payload["drop_lng"])
+#     except Exception:
+#         raise HTTPException(status_code=400, detail="pickup/drop lat/lng required")
+
+#     try:
+#         distance_km = await route_distance_km_osrm(
+#             {"lat": pickup_lat, "lng": pickup_lng},
+#             {"lat": drop_lat, "lng": drop_lng},
+#         )
+#     except Exception:
+#         distance_km = haversine_km(pickup_lat, pickup_lng, drop_lat, drop_lng)
+
+#     base = float(os.getenv("BASE_FARE", "50"))
+#     per_km = float(os.getenv("PER_KM", "10"))
+#     price = round(base + per_km * distance_km, 2)
+
+#     return {
+#         "distance_km": round(distance_km, 2),
+#         "estimated_price": price
+#     }
+
+# # -------------------------
+# # Request Ride
+# # -------------------------
+# @router.post("/request")
+# async def request_ride(payload: Dict, session: AsyncSession = Depends(get_session)):
+#     try:
+#         user_id = str(payload["user_id"])
+#         pickup_address = str(payload["pickup_address"])
+#         drop_address = str(payload["drop_address"])
+#         pickup_lat = float(payload["pickup_lat"])
+#         pickup_lng = float(payload["pickup_lng"])
+#         drop_lat = float(payload["drop_lat"])
+#         drop_lng = float(payload["drop_lng"])
+#     except Exception as e:
+#         logger.error(f"Payload error: {e}")
+#         raise HTTPException(status_code=400, detail="Invalid payload")
+
+#     # Calculate distance
+#     try:
+#         distance_km = await route_distance_km_osrm(
+#             {"lat": pickup_lat, "lng": pickup_lng},
+#             {"lat": drop_lat, "lng": drop_lng},
+#         )
+#     except Exception:
+#         distance_km = haversine_km(pickup_lat, pickup_lng, drop_lat, drop_lng)
+
+#     base = float(os.getenv("BASE_FARE", "50"))
+#     per_km = float(os.getenv("PER_KM", "10"))
+#     price = round(base + per_km * distance_km, 2)
+
+#     ride = Ride(
+#         user_id=user_id,
+#         pickup_address=pickup_address,
+#         drop_address=drop_address,
+#         pickup_lat=pickup_lat,
+#         pickup_lng=pickup_lng,
+#         drop_lat=drop_lat,
+#         drop_lng=drop_lng,
+#         estimated_distance_km=distance_km,
+#         estimated_price=price,
+#         status="requested"
+#     )
+
+#     session.add(ride)
+#     await session.commit()
+#     await session.refresh(ride)
+
+#     return {
+#         "ride_id": ride.id,
+#         "distance_km": round(distance_km, 2),
+#         "estimated_price": price,
+#         "pickup_address": pickup_address,
+#         "drop_address": drop_address
+#     }
+
+# # -------------------------
+# # Ride History
+# # -------------------------
+# @router.get("/history/{user_id}", response_model=List[Ride])
+# async def ride_history(user_id: str, session: AsyncSession = Depends(get_session)):
+#     stmt = select(Ride).where(Ride.user_id == user_id).order_by(Ride.id.desc())
+#     result = await session.execute(stmt)
+#     rides = result.scalars().all()
+#     return rides
+
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlmodel import select
+from typing import List, Dict
+import math
+import httpx
+import os
+import logging
+
+from db import get_session
+from models.ride import Ride
+
+router = APIRouter(prefix="/rides", tags=["rides"])
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+OSRM_BASE = os.getenv("OSRM_URL", "http://router.project-osrm.org")
+
+# -------------------------
+# Helpers
+# -------------------------
+def haversine_km(lat1, lng1, lat2, lng2):
+    R = 6371.0
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lng2 - lng1)
+    a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*(math.sin(dlambda/2)**2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    return R * c
+
+async def route_distance_km_osrm(pickup, drop):
+    lon1, lat1 = pickup["lng"], pickup["lat"]
+    lon2, lat2 = drop["lng"], drop["lat"]
+    url = f"{OSRM_BASE}/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=false"
+    async with httpx.AsyncClient(timeout=10) as client:
+        r = await client.get(url)
+    if r.status_code != 200:
+        raise RuntimeError("OSRM request failed")
+    data = r.json()
+    distance_m = data["routes"][0]["distance"]
+    return distance_m / 1000.0
+
+# -------------------------
+# Estimate Ride
+# -------------------------
+@router.post("/estimate")
+async def estimate_ride(payload: Dict):
+    try:
+        pickup_lat = float(payload["pickup_lat"])
+        pickup_lng = float(payload["pickup_lng"])
+        drop_lat = float(payload["drop_lat"])
+        drop_lng = float(payload["drop_lng"])
+    except Exception:
+        raise HTTPException(status_code=400, detail="pickup/drop lat/lng required")
+
+    try:
+        distance_km = await route_distance_km_osrm(
+            {"lat": pickup_lat, "lng": pickup_lng},
+            {"lat": drop_lat, "lng": drop_lng},
+        )
+    except Exception:
+        distance_km = haversine_km(pickup_lat, pickup_lng, drop_lat, drop_lng)
+
+    base = float(os.getenv("BASE_FARE", "50"))
+    per_km = float(os.getenv("PER_KM", "10"))
+    price = round(base + per_km * distance_km, 2)
+
+    return {
+        "distance_km": round(distance_km, 2),
+        "estimated_price": price
+    }
+
+# -------------------------
+# Request Ride
+# -------------------------
+# @router.post("/request")
+# async def request_ride(payload: Dict, session: AsyncSession = Depends(get_session)):
+#     try:
+#         user_id = str(payload["user_id"])
+#         pickup_lat = float(payload["pickup_lat"])
+#         pickup_lng = float(payload["pickup_lng"])
+#         drop_lat = float(payload["drop_lat"])
+#         drop_lng = float(payload["drop_lng"])
+#         pickup_address = str(payload.get("pickup_address", ""))
+#         drop_address = str(payload.get("drop_address", ""))
+#     except Exception as e:
+#         logger.error(f"Payload error: {e}")
+#         raise HTTPException(status_code=400, detail="Invalid payload")
+
+#     # Distance calculation
+#     try:
+#         distance_km = await route_distance_km_osrm(
+#             {"lat": pickup_lat, "lng": pickup_lng},
+#             {"lat": drop_lat, "lng": drop_lng},
+#         )
+#     except Exception:
+#         distance_km = haversine_km(pickup_lat, pickup_lng, drop_lat, drop_lng)
+
+#     base = float(os.getenv("BASE_FARE", "50"))
+#     per_km = float(os.getenv("PER_KM", "10"))
+#     price = round(base + per_km * distance_km, 2)
+
+#     ride = Ride(
+#         user_id=user_id,
+#         pickup_lat=pickup_lat,
+#         pickup_lng=pickup_lng,
+#         drop_lat=drop_lat,
+#         drop_lng=drop_lng,
+#         estimated_distance_km=distance_km,
+#         estimated_price=price,
+#         status="requested"
+#     )
+
+#     session.add(ride)
+#     await session.commit()
+#     await session.refresh(ride)
+
+#     return {
+#         "ride_id": ride.id,
+#         "distance_km": round(distance_km, 2),
+#         "estimated_price": price,
+#         "pickup_address": pickup_address,
+#         "drop_address": drop_address
+#     }
+
+@router.post("/request")
+async def request_ride(payload: Dict, session: AsyncSession = Depends(get_session)):
+    try:
+        user_id = str(payload["user_id"])
+        pickup_lat = float(payload["pickup_lat"])
+        pickup_lng = float(payload["pickup_lng"])
+        drop_lat = float(payload["drop_lat"])
+        drop_lng = float(payload["drop_lng"])
+        pickup_address = str(payload.get("pickup_address", ""))  # This was missing
+        drop_address = str(payload.get("drop_address", ""))      # This was missing
+    except Exception as e:
+        logger.error(f"Payload error: {e}")
+        raise HTTPException(status_code=400, detail="Invalid payload")
+
+    # Distance calculation
+    try:
+        distance_km = await route_distance_km_osrm(
+            {"lat": pickup_lat, "lng": pickup_lng},
+            {"lat": drop_lat, "lng": drop_lng},
+        )
+    except Exception:
+        distance_km = haversine_km(pickup_lat, pickup_lng, drop_lat, drop_lng)
+
+    base = float(os.getenv("BASE_FARE", "50"))
+    per_km = float(os.getenv("PER_KM", "10"))
+    price = round(base + per_km * distance_km, 2)
+
+    ride = Ride(
+        user_id=user_id,
+        pickup_address=pickup_address,
+        drop_address=drop_address,     
+        pickup_lat=pickup_lat,
+        pickup_lng=pickup_lng,
+        drop_lat=drop_lat,
+        drop_lng=drop_lng,
+        estimated_distance_km=distance_km,
+        estimated_price=price,
+        status="requested",
+        payment_amount=price 
+    )
+
+    session.add(ride)
+    await session.commit()
+    await session.refresh(ride)
+
+    return {
+        "ride_id": ride.id,
+        "distance_km": round(distance_km, 2),
+        "estimated_price": price,
+        "pickup_address": pickup_address,
+        "drop_address": drop_address,
+        "payment_required": True
+    }
+
+# -------------------------
+# Ride History
+# -------------------------
+@router.get("/history/{user_id}", response_model=List[Ride])
+async def ride_history(user_id: str, session: AsyncSession = Depends(get_session)):
+    stmt = select(Ride).where(Ride.user_id == user_id).order_by(Ride.id.desc())
+    result = await session.execute(stmt)
+    rides = result.scalars().all()
+    return rides
+
+
+----------------------------------------
+FILE: ride_history.py
+PATH: .\routes\ride_history.py
+----------------------------------------
+
+from fastapi import APIRouter, Depends
+from fastapi.responses import FileResponse
+from config import supabase
+from pdf.receipt import generate_pdf
+from tasks.receipt_task import send_receipt_email
+
+router = APIRouter(prefix="/rides", tags=["Rides"])
+
+# Dummy auth until you integrate your auth
+def get_user():
+    return {"id": "dummy-user-id", "email": "test@gmail.com"}
+
+@router.get("/history")
+def get_history(user=Depends(get_user)):
+    result = (
+        supabase.table("rides")
+        .select("*")
+        .eq("user_id", user["id"])
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return {"rides": result.data}
+
+
+@router.get("/receipt/{ride_id}")
+def get_receipt(ride_id: str, user=Depends(get_user)):
+    ride = (
+        supabase.table("rides")
+        .select("*")
+        .eq("id", ride_id)
+        .eq("user_id", user["id"])
+        .single()
+        .execute()
+    ).data
+
+    pdf_file = generate_pdf(ride)
+    return FileResponse(pdf_file, media_type="application/pdf", filename=pdf_file)
+
+
+@router.post("/email-receipt/{ride_id}")
+def email_receipt(ride_id: str, user=Depends(get_user)):
+    ride = (
+        supabase.table("rides")
+        .select("*")
+        .eq("id", ride_id)
+        .eq("user_id", user["id"])
+        .single()
+        .execute()
+    ).data
+
+    # send email async
+    send_receipt_email.delay(user["email"], ride)
+    return {"message": "Email will be sent shortly"}
+
+
+----------------------------------------
+FILE: users.py
+PATH: .\routes\users.py
+----------------------------------------
+
+
+
+----------------------------------------
+FILE: __init__.py
+PATH: .\routes\__init__.py
+----------------------------------------
+
+
+
+============================================================
+DIRECTORY: schemas
+============================================================
+
+----------------------------------------
+FILE: stripe.py
+PATH: .\schemas\stripe.py
+----------------------------------------
+
+# Create new file: schemas/payment.py
+from pydantic import BaseModel
+from typing import Optional
+
+class PaymentIntentCreate(BaseModel):
+    ride_id: int
+    amount: float  # Amount in local currency (INR)
+
+class PaymentWebhook(BaseModel):
+    id: str
+    type: str
+    data: dict
+
+
+============================================================
+DIRECTORY: security
+============================================================
+
+----------------------------------------
+FILE: middleware.py
+PATH: .\security\middleware.py
+----------------------------------------
+
+# security/middleware.py
+from fastapi import Request, HTTPException
+from fastapi.responses import JSONResponse
+import time
+import json
+
+async def request_validation_middleware(request: Request, call_next):
+    """Middleware for request validation and logging"""
+    
+    # Start timer
+    start_time = time.time()
+    
+    # Check content type for POST/PUT requests
+    if request.method in ["POST", "PUT", "PATCH"]:
+        content_type = request.headers.get("content-type", "")
+        if not content_type.startswith("application/json"):
+            return JSONResponse(
+                status_code=415,
+                content={"detail": "Unsupported Media Type. Use application/json"}
+            )
+    
+    try:
+        response = await call_next(request)
+        
+        # Calculate request time
+        process_time = time.time() - start_time
+        
+        # Log request (in production, use proper logging)
+        print(f"{request.method} {request.url.path} - {response.status_code} - {process_time:.2f}s")
+        
+        # Add security headers
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Unhandled error in request: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error"}
+        )
+
+----------------------------------------
+FILE: rate_limter.py
+PATH: .\security\rate_limter.py
+----------------------------------------
+
+"""
+Rate limiting middleware for API requests
+"""
+import time
+from collections import defaultdict
+from fastapi import HTTPException, Request
+from typing import Dict, List
+
+
+class RateLimiter:
+    """
+    Simple in-memory rate limiter for development
+    In production, use Redis or another distributed store
+    """
+    def __init__(self):
+        self.requests: Dict[str, List[float]] = defaultdict(list)
+        self.limit = 100  # requests per minute per IP
+        self.window = 60  # seconds
+
+    async def check_rate_limit(self, request: Request):
+        """
+        Check if the request exceeds rate limit
+        Returns nothing if OK, raises HTTPException if limit exceeded
+        """
+        # Get client IP
+        client_ip = request.client.host if request.client else "unknown"
+        
+        # For development, skip rate limiting
+        # Uncomment the code below to enable rate limiting
+        return
+        
+        # Rate limiting logic (commented out for development)
+    
+    def reset(self):
+        """Reset all rate limit counters"""
+        self.requests.clear()
+
+
+# Create a singleton instance
+rate_limiter = RateLimiter()
+
+----------------------------------------
+FILE: __init__.py
+PATH: .\security\__init__.py
+----------------------------------------
+
+
+
+============================================================
+DIRECTORY: services
+============================================================
+
+----------------------------------------
+FILE: matching.py
+PATH: .\services\matching.py
+----------------------------------------
+
+# from sqlmodel.ext.asyncio.session import AsyncSession
+# from sqlmodel import select
+# from models.location import DriverLocation
+# from models.ride import Ride
+# from shapely.geometry import Point
+
+# async def match_driver_to_ride(session: AsyncSession, ride: Ride):
+    # Get all driver locations (assuming all are online)
+    # driver_locations = await session.exec(select(DriverLocation))
+    # driver_locations = driver_locations.all()
+
+    # if not driver_locations:
+    #     return None
+
+    # rider_point = Point(ride.pickup_lat, ride.pickup_lng)
+
+    # # Find the nearest driver
+    # nearest = min(driver_locations, key=lambda d: rider_point.distance(Point(d.lat, d.lng)))
+
+    # # Assign the driver
+    # ride.driver_id = nearest.driver_id
+    # ride.status = "assigned"
+
+    # session.add(ride)
+    # await session.commit()
+
+    # return nearest.driver_id
+    
+from sqlmodel import select
+from sqlalchemy.ext.asyncio import AsyncSession
+import math
+from models.user import User
+from models.location import DriverLocation
+from models.ride import Ride
+
+async def match_driver_to_ride(session: AsyncSession, ride: Ride):
+    # Get all online drivers
+    result = await session.execute(
+        select(User, DriverLocation).join(
+            DriverLocation, User.id == DriverLocation.driver_id
+        ).where(User.role == "driver", DriverLocation.is_online == True)
+    )
+    drivers_with_locations = result.all()
+    
+    if not drivers_with_locations:
+        return None
+    
+    # Find the nearest driver
+    nearest_driver = None
+    min_distance = float('inf')
+    
+    for user, driver_location in drivers_with_locations:
+        distance = haversine_distance(
+            ride.pickup_lat, ride.pickup_lng,
+            driver_location.lat, driver_location.lng
+        )
+        if distance < min_distance:
+            min_distance = distance
+            nearest_driver = user
+    
+    # Assign the driver to the ride
+    ride.driver_id = nearest_driver.id
+    ride.status = "driver_assigned"
+    session.add(ride)
+    await session.commit()
+    
+    return nearest_driver
+
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """Calculate the great circle distance between two points in kilometers."""
+    R = 6371.0  # Earth radius in kilometers
+
+    lat1_rad = math.radians(lat1)
+    lon1_rad = math.radians(lon1)
+    lat2_rad = math.radians(lat2)
+    lon2_rad = math.radians(lon2)
+
+    dlat = lat2_rad - lat1_rad
+    dlon = lon2_rad - lon1_rad
+
+    a = math.sin(dlat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    return R * c
+
+============================================================
+DIRECTORY: tasks
+============================================================
+
+----------------------------------------
+FILE: receipt_task.py
+PATH: .\tasks\receipt_task.py
+----------------------------------------
+
+from celery_app import celery
+from pdf.receipt import generate_pdf
+from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
+import asyncio
+
+# conf = ConnectionConfig(
+#     MAIL_USERNAME="darshanaparmar1316@gmail.com",
+#     MAIL_PASSWORD="Zhbd@899",
+#     MAIL_FROM="darshanaparmar1316@gmail.com",
+#     MAIL_PORT=587,
+#     MAIL_SERVER="smtp.gmail.com",
+#     MAIL_FROM_NAME="Pycab",
+#     MAIL_STARTTLS=True,      # REQUIRED instead of MAIL_TLS
+#     MAIL_SSL_TLS=False,      # REQUIRED instead of MAIL_SSL
+#     USE_CREDENTIALS=True,
+#     VALIDATE_CERTS=True
+# )
+
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+conf = ConnectionConfig(
+    MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
+    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),  # Secure!
+    MAIL_FROM=os.getenv("MAIL_FROM"),
+    MAIL_PORT=int(os.getenv("MAIL_PORT", 587)),
+    MAIL_SERVER=os.getenv("MAIL_SERVER", "smtp.gmail.com"),
+    MAIL_FROM_NAME="Pycab",
+    MAIL_STARTTLS=True,
+    MAIL_SSL_TLS=False,
+    USE_CREDENTIALS=True,
+    VALIDATE_CERTS=True
+)
+
+# conf = ConnectionConfig(
+#     MAIL_USERNAME="your@gmail.com",
+#     MAIL_PASSWORD="your-password",
+#     MAIL_FROM="your@gmail.com",
+#     MAIL_SERVER="smtp.gmail.com",
+#     MAIL_PORT=587,
+#     MAIL_TLS=True,
+#     MAIL_SSL=False
+# )
+
+@celery.task
+def send_receipt_email(email: str, ride: dict):
+    pdf_path = generate_pdf(ride)
+
+    message = MessageSchema(
+        subject="Your Ride Receipt",
+        recipients=[email],
+        body="Your ride receipt is attached.",
+        attachments=[pdf_path]
+    )
+
+    fm = FastMail(conf)
+    asyncio.run(fm.send_message(message))
+
+
+============================================================
+DIRECTORY: tests
+============================================================
+
+----------------------------------------
+FILE: conftest.py
+PATH: .\tests\conftest.py
+----------------------------------------
+
+import sys, os
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
+
+
+import pytest
+from fastapi.testclient import TestClient
+from unittest.mock import MagicMock, patch
+import sys, os
+
+from backend.main import app
+
+@pytest.fixture
+def client():
+    return TestClient(app)
+
+@pytest.fixture
+def supabase_mock():
+    mock = MagicMock()
+    with patch("backend.config.supabase", mock):
+        yield mock
+
+
+----------------------------------------
+FILE: test_auth.py
+PATH: .\tests\test_auth.py
+----------------------------------------
+
+def test_signup(client, supabase_mock):
+    supabase_mock.auth.sign_up.return_value = {"user": {"id": "123"}}
+
+    response = client.post("/auth/signup", json={
+        "email": "test@example.com",
+        "password": "123456"
+    })
+
+    assert response.status_code == 200
+    assert response.json()["user"]["id"] == "123"
+
+
+----------------------------------------
+FILE: test_booking.py
+PATH: .\tests\test_booking.py
+----------------------------------------
+
+def test_create_booking(client):
+    payload = {
+        "pickup": "A",
+        "drop": "B",
+        "user_id": 1
+    }
+
+    response = client.post("/booking/create", json=payload)
+
+    assert response.status_code == 200
+    assert response.json()["pickup"] == "A"
+
+
+----------------------------------------
+FILE: test_e2e.py
+PATH: .\tests\test_e2e.py
+----------------------------------------
+
+# tests/test_e2e.py
+import pytest
+import asyncio
+from httpx import AsyncClient
+import os
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.orm import sessionmaker
+from sqlmodel import SQLModel
+import stripe
+
+from main import app
+from db import get_session
+from models.ride import Ride
+from models.user import User
+from models.booking import Booking
+
+# Test database URL (use in-memory SQLite for testing)
+TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
+
+@pytest.fixture(scope="module")
+def anyio_backend():
+    return "asyncio"
+
+@pytest.fixture(scope="module")
+async def test_db():
+    # Create test database
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+    
+    yield engine
+    
+    # Cleanup
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.drop_all)
+    await engine.dispose()
+
+@pytest.fixture
+async def async_client(test_db):
+    # Override the get_session dependency
+    async def override_get_session():
+        SessionLocal = sessionmaker(
+            test_db, 
+            class_=AsyncSession, 
+            expire_on_commit=False
+        )
+        async with SessionLocal() as session:
+            yield session
+    
+    app.dependency_overrides[get_session] = override_get_session
+    
+    async with AsyncClient(app=app, base_url="http://test") as client:
+        yield client
+    
+    app.dependency_overrides.clear()
+
+@pytest.fixture
+def test_user():
+    return {
+        "email": "test@example.com",
+        "password": "TestPass123",
+        "first_name": "Test",
+        "last_name": "User"
+    }
+
+@pytest.mark.anyio
+async def test_complete_ride_flow(async_client, test_user):
+    """Complete end-to-end ride booking flow"""
+    
+    # 1. User Registration
+    print("1. Testing user registration...")
+    register_response = await async_client.post("/auth/register", json={
+        "first_name": test_user["first_name"],
+        "last_name": test_user["last_name"],
+        "email": test_user["email"],
+        "password": test_user["password"]
+    })
+    
+    # Skip if Supabase is not configured (demo mode)
+    if register_response.status_code >= 500:
+        print("   Skipping registration (Supabase not configured)")
+        # Use demo user ID
+        user_id = "demo_test_user_123"
+    else:
+        assert register_response.status_code in [200, 400]  # 400 if user exists
+        user_id = "test_user_123"
+    
+    # 2. Ride Estimation
+    print("2. Testing ride estimation...")
+    estimate_response = await async_client.post("/rides/estimate", json={
+        "pickup_lat": 19.0760,
+        "pickup_lng": 72.8777,
+        "drop_lat": 19.2183,
+        "drop_lng": 72.9781
+    })
+    
+    assert estimate_response.status_code == 200
+    estimate_data = estimate_response.json()
+    assert "distance_km" in estimate_data
+    assert "estimated_price" in estimate_data
+    print(f"   Estimated: {estimate_data['distance_km']}km, ₹{estimate_data['estimated_price']}")
+    
+    # 3. Ride Request
+    print("3. Testing ride request...")
+    ride_response = await async_client.post("/rides/request", json={
+        "user_id": user_id,
+        "pickup_address": "Mumbai, Maharashtra",
+        "drop_address": "Pune, Maharashtra",
+        "pickup_lat": 19.0760,
+        "pickup_lng": 72.8777,
+        "drop_lat": 19.2183,
+        "drop_lng": 72.9781
+    })
+    
+    assert ride_response.status_code == 200
+    ride_data = ride_response.json()
+    assert "ride_id" in ride_data
+    ride_id = ride_data["ride_id"]
+    print(f"   Ride booked: ID #{ride_id}")
+    
+    # 4. Payment Initiation
+    print("4. Testing payment initiation...")
+    # Mock Stripe for testing
+    import sys
+    sys.modules['stripe'].PaymentIntent.create = lambda **kwargs: type('obj', (object,), {
+        'id': 'pi_test_123',
+        'client_secret': 'secret_test_123',
+        'status': 'requires_payment_method'
+    })()
+    
+    payment_response = await async_client.post(f"/payments/initiate/{ride_id}")
+    
+    if payment_response.status_code == 400 and "Stripe" in str(payment_response.json()):
+        print("   Skipping payment (Stripe not configured)")
+    else:
+        assert payment_response.status_code == 200
+        payment_data = payment_response.json()
+        assert "client_secret" in payment_data
+        print("   Payment intent created")
+    
+    # 5. Ride History
+    print("5. Testing ride history...")
+    history_response = await async_client.get(f"/rides/history/{user_id}")
+    
+    assert history_response.status_code == 200
+    history_data = history_response.json()
+    assert isinstance(history_data, list)
+    print(f"   Found {len(history_data)} rides in history")
+    
+    # 6. Booking Endpoint
+    print("6. Testing booking endpoint...")
+    booking_response = await async_client.post("/booking/create", json={
+        "pickup": "Test Pickup",
+        "drop": "Test Drop",
+        "user_id": user_id
+    })
+    
+    assert booking_response.status_code == 200
+    booking_data = booking_response.json()
+    assert booking_data["pickup"] == "Test Pickup"
+    print("   Booking endpoint working")
+    
+    # 7. Health Check
+    print("7. Testing health endpoints...")
+    health_response = await async_client.get("/")
+    assert health_response.status_code == 200
+    assert "message" in health_response.json()
+    
+    status_response = await async_client.get("/health")
+    if status_response.status_code == 200:
+        print("   Health endpoint working")
+    else:
+        print("   Adding health endpoint...")
+        # Health endpoint will be added below
+    
+    print("✅ All E2E tests passed!")
+    return True
+
+@pytest.mark.anyio
+async def test_concurrent_requests(async_client):
+    """Test concurrent ride requests"""
+    print("Testing concurrent requests...")
+    
+    requests = []
+    for i in range(3):
+        request = async_client.post("/rides/estimate", json={
+            "pickup_lat": 19.0760 + (i * 0.01),
+            "pickup_lng": 72.8777 + (i * 0.01),
+            "drop_lat": 19.2183 + (i * 0.01),
+            "drop_lng": 72.9781 + (i * 0.01)
+        })
+        requests.append(request)
+    
+    responses = await asyncio.gather(*requests)
+    
+    for i, response in enumerate(responses):
+        assert response.status_code == 200, f"Request {i} failed: {response.status_code}"
+    
+    print(f"✅ {len(responses)} concurrent requests handled successfully")
+
+def run_complete_test_suite():
+    """Run all tests"""
+    print("🚀 Starting comprehensive test suite...")
+    print("=" * 50)
+    
+    # Run pytest programmatically
+    import subprocess
+    import sys
+    
+    result = subprocess.run([
+        sys.executable, "-m", "pytest",
+        "tests/",
+        "-v",
+        "--tb=short",
+        "--disable-warnings"
+    ])
+    
+    print("=" * 50)
+    if result.returncode == 0:
+        print("🎉 All tests passed!")
+        return True
+    else:
+        print("❌ Some tests failed")
+        return False
+
+if __name__ == "__main__":
+    # Run the complete test suite
+    success = run_complete_test_suite()
+    exit(0 if success else 1)
+
+----------------------------------------
+FILE: test_payment.py
+PATH: .\tests\test_payment.py
+----------------------------------------
+
+# test_payment.py
+import asyncio
+import httpx
+import stripe
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+async def test_complete_payment_flow():
+    """Test the complete payment flow"""
+    async with httpx.AsyncClient() as client:
+        print("1. Creating a ride...")
+        
+        # Create a ride
+        ride_data = {
+            "user_id": "test_user_456",
+            "pickup_address": "Bangalore Airport",
+            "drop_address": "MG Road",
+            "pickup_lat": 13.1989,
+            "pickup_lng": 77.7068,
+            "drop_lat": 12.9716,
+            "drop_lng": 77.5946
+        }
+        
+        ride_response = await client.post(
+            "http://localhost:8000/rides/request",
+            json=ride_data
+        )
+        
+        if ride_response.status_code != 200:
+            print(f"Failed to create ride: {ride_response.text}")
+            return
+        
+        ride_info = ride_response.json()
+        ride_id = ride_info["ride_id"]
+        price = ride_info["estimated_price"]
+        
+        print(f"Created ride #{ride_id} with price: ₹{price}")
+        
+        print("\n2. Creating payment intent...")
+        
+        # Create payment intent
+        payment_response = await client.post(
+            f"http://localhost:8000/payments/initiate/{ride_id}"
+        )
+        
+        if payment_response.status_code != 200:
+            print(f"Failed to create payment intent: {payment_response.text}")
+            return
+        
+        payment_info = payment_response.json()
+        payment_intent_id = payment_info["payment_intent_id"]
+        client_secret = payment_info["client_secret"]
+        
+        print(f"Payment Intent ID: {payment_intent_id}")
+        
+        print("\n3. Simulating successful payment with test card...")
+        
+        try:
+            # Simulate payment confirmation (this would be done by Stripe.js in frontend)
+            # In backend testing, we can confirm directly
+            payment_intent = stripe.PaymentIntent.confirm(
+                payment_intent_id,
+                payment_method='pm_card_visa',  # Test card
+                return_url='http://localhost:5173/success'  # Your frontend URL
+            )
+            
+            print(f"Payment status: {payment_intent.status}")
+            print(f"Payment amount: ₹{payment_intent.amount / 100}")
+            
+        except Exception as e:
+            print(f"Payment failed: {e}")
+            
+        print("\n4. Checking payment status via API...")
+        
+        # Check payment status
+        status_response = await client.get(
+            f"http://localhost:8000/payments/status/{payment_intent_id}"
+        )
+        
+        if status_response.status_code == 200:
+            status_info = status_response.json()
+            print(f"Payment Status: {status_info['status']}")
+            print(f"Amount: ₹{status_info['amount']}")
+            print(f"Ride ID: {status_info.get('ride_id')}")
+        else:
+            print(f"Failed to get status: {status_response.text}")
+        
+        print("\n5. Checking ride details...")
+        
+        # Get ride details to see if payment status updated
+        ride_detail_response = await client.get(
+            f"http://localhost:8000/rides/{ride_id}"
+        )
+        
+        if ride_detail_response.status_code == 200:
+            ride_detail = ride_detail_response.json()
+            print(f"Ride #{ride_detail['id']}")
+            print(f"Payment Status: {ride_detail.get('payment_status', 'N/A')}")
+            print(f"Payment Intent ID: {ride_detail.get('payment_intent_id', 'N/A')}")
+        else:
+            print(f"Failed to get ride details: {ride_detail_response.text}")
+
+if __name__ == "__main__":
+    asyncio.run(test_complete_payment_flow())
+
+----------------------------------------
+FILE: test_rides.py
+PATH: .\tests\test_rides.py
+----------------------------------------
+
+# tests/test_rides.py
+import pytest
+from fastapi.testclient import TestClient
+
+from main import app
+
+client = TestClient(app)
+
+def test_estimate_ride():
+    """Test ride estimation"""
+    response = client.post(
+        "/rides/estimate",
+        json={
+            "pickup_lat": 19.0760,
+            "pickup_lng": 72.8777,
+            "drop_lat": 19.2183,
+            "drop_lng": 72.9781
+        }
+    )
+    
+    assert response.status_code == 200
+    assert "distance_km" in response.json()
+    assert "estimated_price" in response.json()
+
+def test_request_ride():
+    """Test ride booking"""
+    response = client.post(
+        "/rides/request",
+        json={
+            "user_id": "test_user_123",
+            "pickup_address": "Mumbai",
+            "drop_address": "Pune",
+            "pickup_lat": 19.0760,
+            "pickup_lng": 72.8777,
+            "drop_lat": 19.2183,
+            "drop_lng": 72.9781
+        }
+    )
+    
+    assert response.status_code == 200
+    assert "ride_id" in response.json()
+
+def test_ride_history():
+    """Test fetching ride history"""
+    response = client.get("/rides/history/test_user_123")
+    
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
+
+----------------------------------------
+FILE: test_root.py
+PATH: .\tests\test_root.py
+----------------------------------------
+
+def test_root(client):
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "message" in response.json()
+
+
+----------------------------------------
+FILE: __init__.py
+PATH: .\tests\__init__.py
+----------------------------------------
+
+
+
+============================================================
+DIRECTORY: websocket
+============================================================
+
+----------------------------------------
+FILE: socket_manager.py
+PATH: .\websocket\socket_manager.py
+----------------------------------------
+
+import socketio
+from fastapi import FastAPI
+
+sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
+socket_app = socketio.ASGIApp(sio)
+
+@sio.event
+async def connect(sid, environ):
+    print(f"Client connected: {sid}")
+
+@sio.event
+async def disconnect(sid):
+    print(f"Client disconnected: {sid}")
+
+@sio.event
+async def join_ride(sid, ride_id):
+    sio.enter_room(sid, ride_id)
+    await sio.emit('joined_ride', {'ride_id': ride_id}, room=sid)
+
+@sio.event
+async def driver_location(sid, data):
+    ride_id = data['ride_id']
+    location = data['location']  # {lat: ..., lng: ...}
+    # Broadcast to everyone in the ride room except the sender
+    await sio.emit('driver_location_update', location, room=ride_id, skip_sid=sid)

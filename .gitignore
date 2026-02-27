@@ -1,0 +1,19 @@
+echo "# Root gitignore to catch anything missed
+
+# Virtual environments
+**/venv/
+**/env/
+**/.venv
+
+# Python cache
+**/__pycache__/
+**/*.pyc
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+" > .gitignore

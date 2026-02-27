@@ -1,0 +1,30 @@
+# backend/Dockerfile.celery
+FROM python:3.11-slim
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    CELERY_BROKER_URL=redis://redis:6379/0 \
+    CELERY_RESULT_BACKEND=redis://redis:6379/0
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+# Create non-root user
+RUN useradd -m -u 1001 celery && \
+    chown -R celery:celery /app
+USER celery
+
+# Run Celery worker
+CMD ["celery", "-A", "celery_app.celery", "worker", "--loglevel=info", "--concurrency=4"]
