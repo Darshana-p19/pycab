@@ -32,7 +32,7 @@ reportlab==4.4.9
 
 # Geospatial & Maps
 geopy==2.4.0  # For distance calculations
-shapely==2.0.2  # For geometry operations
+shapely==1.8.5  # For geometry operations
 
 # Utilities
 pydantic==2.5.0
