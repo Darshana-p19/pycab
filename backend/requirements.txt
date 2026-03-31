@@ -55,3 +55,4 @@ python-depends
 fastapi-mail
 email-validator
 psutil
+setuptools
