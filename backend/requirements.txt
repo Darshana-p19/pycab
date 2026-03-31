@@ -28,7 +28,6 @@ redis==5.0.1
 stripe>=6.0.0,<7.0.0  
 fastapi-mail>=0.4.0
 aiosmtplib>=2.0.0
-reportlab==4.4.9
 
 # Geospatial & Maps
 geopy==2.4.0  # For distance calculations
@@ -50,9 +49,4 @@ pytest-asyncio==0.21.1
 httpx==0.25.2
 factory-boy==3.3.0
 
-python-depends
-
-fastapi-mail
-email-validator
-psutil
 setuptools
